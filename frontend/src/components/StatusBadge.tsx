@@ -22,9 +22,17 @@ const TONE: Record<RoomStatus | ReservationStatus, 'green' | 'gray' | 'red'> = {
 }
 
 export function RoomStatusBadge({ status }: { status: RoomStatus }) {
-  return <span className={`badge badge--${TONE[status]}`}>{ROOM_LABEL[status]}</span>
+  return (
+    <span className={`badge badge--${TONE[status]}`} title={ROOM_LABEL[status]}>
+      {status}
+    </span>
+  )
 }
 
 export function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
-  return <span className={`badge badge--${TONE[status]}`}>{RESERVATION_LABEL[status]}</span>
+  return (
+    <span className={`badge badge--${TONE[status]}`} title={RESERVATION_LABEL[status]}>
+      {status}
+    </span>
+  )
 }

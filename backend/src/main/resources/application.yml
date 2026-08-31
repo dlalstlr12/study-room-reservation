@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: study-room-reservation
+  profiles:
+    active: local
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

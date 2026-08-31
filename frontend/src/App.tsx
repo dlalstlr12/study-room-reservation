@@ -1,31 +1,31 @@
-import { useEffect, useState } from 'react'
-import { getHealth } from './api/client'
+import { Route, Routes } from 'react-router-dom'
+import { AppLayout } from './components/AppLayout'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { DashboardPage } from './pages/DashboardPage'
+import { LoginPage } from './pages/LoginPage'
+import { NotFoundPage } from './pages/NotFoundPage'
+import { ReservationsPage } from './pages/ReservationsPage'
+import { RoomsPage } from './pages/RoomsPage'
+import { SignupPage } from './pages/SignupPage'
 
-type Status = 'checking' | 'up' | 'down'
-
-function App() {
-  const [status, setStatus] = useState<Status>('checking')
-  const [timestamp, setTimestamp] = useState<string | null>(null)
-
-  useEffect(() => {
-    getHealth()
-      .then((data) => {
-        setStatus('up')
-        setTimestamp(data.timestamp)
-      })
-      .catch(() => setStatus('down'))
-  }, [])
-
+export default function App() {
   return (
-    <main className="app">
-      <h1>스터디룸 예약 시스템</h1>
-      <p className={`status status--${status}`}>
-        {status === 'checking' && '백엔드 상태 확인 중...'}
-        {status === 'up' && `백엔드 정상 동작 중 (${timestamp})`}
-        {status === 'down' && '백엔드 연결 실패 — 서버가 실행 중인지 확인하세요.'}
-      </p>
-    </main>
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="rooms" element={<RoomsPage />} />
+        <Route
+          path="reservations"
+          element={
+            <ProtectedRoute>
+              <ReservationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="signup" element={<SignupPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   )
 }
-
-export default App

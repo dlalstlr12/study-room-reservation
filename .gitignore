@@ -9,6 +9,9 @@ backend/build/
 *.iws
 .vscode/
 
+# Claude Code (개인 로컬 설정)
+.claude/settings.local.json
+
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/

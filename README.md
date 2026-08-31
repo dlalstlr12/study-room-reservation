@@ -48,6 +48,37 @@ npm run dev
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - 프론트: http://localhost:5173 — 백엔드 헬스체크 상태를 화면에 표시합니다.
 
+## API (로드맵 1단계 — 코어 도메인)
+
+DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하고, `local` 프로파일에서는
+`LocalDataInitializer`가 데모 데이터를 시드합니다.
+
+- **데모 관리자 계정**: `admin@studyroom.local` / `admin1234` (룸 생성·수정·삭제 권한)
+
+| 메서드 | 경로 | 권한 |
+|---|---|---|
+| POST | `/api/auth/signup` | 공개 |
+| POST | `/api/auth/login` | 공개 — accessToken/refreshToken 발급 |
+| POST | `/api/auth/reissue` | 공개 — 리프레시 토큰 회전 |
+| POST | `/api/auth/logout` | 인증 |
+| GET | `/api/members/me` | 인증 |
+| GET | `/api/rooms`, `/api/rooms/{id}` | 공개 |
+| POST/PUT/DELETE | `/api/rooms`, `/api/rooms/{id}` | ADMIN |
+| POST | `/api/reservations` | 인증 (동시성 제어 없음 — 2단계 예정) |
+| GET | `/api/reservations/me` | 인증 |
+| GET | `/api/reservations/{id}` | 인증 (본인 또는 ADMIN) |
+| POST | `/api/reservations/{id}/cancel` | 인증 (본인) |
+
+### Swagger로 인증 테스트
+
+1. `POST /api/auth/login`으로 토큰을 받습니다.
+2. Swagger UI 우측 상단 **Authorize**에 `accessToken` 값을 붙여넣습니다(접두어 `Bearer` 제외).
+3. 인증이 필요한 엔드포인트를 그대로 실행합니다.
+
+> `jwt.secret`은 `application-local.yml`에 개발용으로만 들어 있습니다(최소 32바이트).
+> 운영 배포 시 환경변수 등으로 반드시 교체하세요.
+
 ## 다음 단계
 
-로드맵 1단계(코어 도메인: 회원 인증, 룸/예약 기본 CRUD, Swagger 문서화)부터 진행합니다.
+로드맵 2단계(동시성 제어): 락 없는 예약 생성의 동시성 버그를 테스트로 재현 →
+비관적 락 → Redisson 분산 락 순으로 해결하고 처리량을 수치로 비교합니다.

@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: study-room-mysql
+    environment:
+      MYSQL_DATABASE: study_room
+      MYSQL_USER: study_room
+      MYSQL_PASSWORD: study_room
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+    container_name: study-room-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql-data:

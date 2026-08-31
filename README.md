@@ -46,7 +46,23 @@ npm run dev
 
 - 백엔드 헬스체크: http://localhost:8080/api/health
 - Swagger UI: http://localhost:8080/swagger-ui.html
-- 프론트: http://localhost:5173 — 백엔드 헬스체크 상태를 화면에 표시합니다.
+- 프론트: http://localhost:5173
+
+## 프론트엔드 (단계별 기능 시연)
+
+각 로드맵 단계에서 추가된 백엔드 기능을 화면에서 직접 확인하는 데모 앱입니다.
+백엔드 주소는 `frontend/.env`의 `VITE_API_BASE_URL`(기본 `http://localhost:8080`)로 지정합니다.
+
+**1단계 화면** (React + TypeScript + react-router):
+
+| 경로 | 내용 |
+|---|---|
+| `/` 대시보드 | 백엔드 헬스 상태, 룸/내 예약 통계, 1단계 기능 링크 |
+| `/signup` `/login` | 회원가입·로그인, 토큰은 localStorage 저장 후 401 시 리프레시로 자동 재발급 |
+| `/rooms` | 룸 목록·상태 필터 (공개). ADMIN은 생성·수정·삭제, USER는 예약하기 |
+| `/reservations` | (로그인 필요) 예약 생성·내 예약 목록·취소 |
+
+> CORS: 백엔드는 `app.cors.allowed-origins`(기본 `http://localhost:5173`)만 허용합니다.
 
 ## API (로드맵 1단계 — 코어 도메인)
 

@@ -8,12 +8,10 @@ import { Card } from '../components/ui'
 import { formatDateTime } from '../utils/format'
 
 const FEATURES = [
-  { to: '/signup', label: '회원가입', desc: 'POST /api/auth/signup — 이메일 중복·검증 처리' },
-  { to: '/login', label: '로그인 / 토큰 재발급', desc: 'JWT 발급, 만료 시 리프레시 토큰으로 자동 재발급' },
-  { to: '/rooms', label: '룸 조회 (공개)', desc: 'GET /api/rooms — 상태 필터' },
-  { to: '/rooms', label: '룸 관리 (ADMIN)', desc: 'POST/PUT/DELETE /api/rooms — 관리자 전용' },
-  { to: '/reservations', label: '예약 생성·취소', desc: 'POST /api/reservations, 시간·겹침 검증' },
-  { to: '/reservations', label: '내 예약 목록', desc: 'GET /api/reservations/me — 본인 예약만' },
+  { to: '/rooms', label: '룸 예약 현황', desc: 'GET /api/rooms/{id}/schedule — 예약·홀딩 타임라인 (Redis 캐싱)' },
+  { to: '/rooms', label: '좌석 홀딩', desc: 'POST /api/reservations/holds — Redis TTL 10분, 30분 슬롯' },
+  { to: '/reservations', label: '홀딩 확정', desc: 'POST /holds/{roomId}/{holdId}/confirm — 홀딩 → RESERVED 예약' },
+  { to: '/reservations', label: '내 홀딩 / 예약', desc: 'GET /holds/me, /reservations/me — TTL 만료 시 자동 해제' },
 ]
 
 export function DashboardPage() {
@@ -45,7 +43,7 @@ export function DashboardPage() {
       <div className="page__head">
         <h1>대시보드</h1>
         <p className="page__lead">
-          로드맵 1단계에서 구현한 백엔드 기능을 이 화면들에서 직접 확인할 수 있습니다.
+          로드맵 3단계 — Redis TTL 좌석 홀딩과 룸 현황 캐싱. 아래 화면들에서 직접 확인할 수 있습니다.
         </p>
       </div>
 
@@ -75,7 +73,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card title="1단계 기능">
+      <Card title="3단계 기능">
         <ul className="feature-list">
           {FEATURES.map((f) => (
             <li key={f.label}>

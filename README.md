@@ -53,16 +53,15 @@ npm run dev
 각 로드맵 단계에서 추가된 백엔드 기능을 화면에서 직접 확인하는 데모 앱입니다.
 백엔드 주소는 `frontend/.env`의 `VITE_API_BASE_URL`(기본 `http://localhost:8080`)로 지정합니다.
 
-**1단계 화면** (React + TypeScript + react-router):
-
 | 경로 | 내용 |
 |---|---|
-| `/` 대시보드 | 백엔드 헬스 상태, 룸/내 예약 통계, 1단계 기능 링크 |
+| `/` 대시보드 | 백엔드 헬스 상태, 룸/내 예약 통계, 단계별 기능 링크 |
 | `/signup` `/login` | 회원가입·로그인, 토큰은 localStorage 저장 후 401 시 리프레시로 자동 재발급 |
-| `/rooms` | 룸 목록·상태 필터 (공개). ADMIN은 생성·수정·삭제, USER는 예약하기 |
-| `/reservations` | (로그인 필요) 예약 생성·내 예약 목록·취소 |
+| `/rooms` | 룸 목록 (공개). ADMIN은 생성·수정·삭제 |
+| `/rooms/:id` | 룸 예약 현황 타임라인(날짜별 예약·홀딩), 30분 슬롯 홀딩 → 카운트다운 → 확정 |
+| `/reservations` | (로그인 필요) 내 홀딩(확정/해제)·내 예약 목록·취소 |
 
-> CORS: 백엔드는 `app.cors.allowed-origins`(기본 `http://localhost:5173`)만 허용합니다.
+> CORS: 백엔드는 `app.cors.allowed-origins`(기본 `http://localhost:5173,http://localhost:5174`)만 허용합니다.
 
 ## API (로드맵 1단계 — 코어 도메인)
 
@@ -79,11 +78,16 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 | POST | `/api/auth/logout` | 인증 |
 | GET | `/api/members/me` | 인증 |
 | GET | `/api/rooms`, `/api/rooms/{id}` | 공개 |
+| GET | `/api/rooms/{id}/schedule?date=` | 공개 — 날짜별 예약·홀딩 현황 |
 | POST/PUT/DELETE | `/api/rooms`, `/api/rooms/{id}` | ADMIN |
 | POST | `/api/reservations` | 인증 (동시성 제어 — 아래 참고) |
 | GET | `/api/reservations/me` | 인증 |
 | GET | `/api/reservations/{id}` | 인증 (본인 또는 ADMIN) |
 | POST | `/api/reservations/{id}/cancel` | 인증 (본인) |
+| POST | `/api/reservations/holds` | 인증 — 좌석 홀딩 (TTL 10분) |
+| GET | `/api/reservations/holds/me` | 인증 |
+| POST | `/api/reservations/holds/{roomId}/{holdId}/confirm` | 인증 — 홀딩 → 예약 확정 |
+| DELETE | `/api/reservations/holds/{roomId}/{holdId}` | 인증 — 홀딩 해제 |
 
 ### Swagger로 인증 테스트
 
@@ -108,6 +112,20 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 - 재현/검증: `backend/src/test/java/com/studyroom/reservation/concurrency/` (Testcontainers)
 - 부하테스트: `docker run --rm -i grafana/k6 run - < backend/load-test/reservation-conflict.js`
 
+## 캐싱 · 홀딩 (로드맵 3단계)
+
+락으로도 "룸 선택 후 확정까지의 몇 분"은 못 잡는다. **Redis TTL 홀딩**(10분)으로 확정 유예를 주고,
+만료는 **keyspace 이벤트 + 스케줄러 백스톱**으로 처리한다(이벤트는 신뢰성 보장 X). 룸 목록·현황은
+**Redis 캐싱**. 전 과정: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
+
+| 대상 | 캐시 없음 | Redis 캐싱 |
+|---|---|---|
+| `GET /rooms` + `/rooms/{id}/schedule` (30 VU) | p95 68ms · 738 req/s | p95 34ms · 1,700 req/s |
+
+- 예약·홀딩 시간은 30분 슬롯 고정. 룸 페이지는 룸 클릭 → 예약 현황 타임라인.
+- 재현/검증: `backend/src/test/java/com/studyroom/reservation/hold/`, `.../schedule/`, `.../common/cache/`
+- 부하테스트: `backend/load-test/holding-rush.js`, `backend/load-test/room-read.js`
+
 ## 다음 단계
 
-로드맵 3단계(캐싱/홀딩): Redis TTL 기반 좌석 홀딩(5~10분), 룸 상태 캐싱.
+로드맵 4단계(실시간): WebSocket/STOMP로 좌석 상태(예약·홀딩·만료) 브로드캐스트.

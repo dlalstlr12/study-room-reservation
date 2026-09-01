@@ -829,6 +829,141 @@ a:hover {
   border-left-color: var(--sign);
 }
 
+/* ---------- Mono inline text ---------- */
+
+.mono-sm {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- Room detail: back link + card as link ---------- */
+
+.page__back {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+.room-card--link {
+  cursor: pointer;
+}
+
+.room-card--link:focus-visible {
+  outline: 2px solid var(--sign);
+  outline-offset: 2px;
+}
+
+.room-card__id {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- Day schedule: reserved / holding blocks on an 08–24 track ---------- */
+
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.schedule__track {
+  position: relative;
+  width: 100%;
+  height: 30px;
+  background-color: var(--panel-2);
+  background-image: repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 12.5%);
+  border: 1px solid var(--rule);
+  border-radius: 1px;
+}
+
+.schedule__block {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 1px;
+  min-width: 2px;
+  border: 1px solid transparent;
+}
+
+.schedule__block--reserved {
+  background: var(--reserved);
+}
+
+.schedule__block--holding {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--free) 0 5px,
+    var(--free-soft) 5px 10px
+  );
+  border-color: var(--free);
+}
+
+.schedule__block.is-mine {
+  outline: 2px solid var(--sign);
+  outline-offset: 1px;
+}
+
+.schedule__axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--ink-soft);
+}
+
+.schedule__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.schedule__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+}
+
+/* ---------- Hold countdown banner ---------- */
+
+.hold-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1rem;
+  background: var(--free-soft);
+  border: 1px solid var(--free);
+  border-left-width: 3px;
+  border-radius: var(--r);
+}
+
+.hold-banner__info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.hold-banner__count {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--free);
+  font-variant-numeric: tabular-nums;
+}
+
+.hold-banner__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

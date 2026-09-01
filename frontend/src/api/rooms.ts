@@ -1,4 +1,4 @@
-import type { Room, RoomStatus } from '../types'
+import type { Room, RoomSchedule } from '../types'
 import { apiFetch } from './client'
 
 export interface RoomCreateBody {
@@ -7,16 +7,19 @@ export interface RoomCreateBody {
   description: string
 }
 
-export interface RoomUpdateBody extends RoomCreateBody {
-  status: RoomStatus
-}
+export type RoomUpdateBody = RoomCreateBody
 
-export function listRooms(status?: RoomStatus): Promise<Room[]> {
-  return apiFetch<Room[]>('/api/rooms', { anonymous: true, query: { status } })
+export function listRooms(): Promise<Room[]> {
+  return apiFetch<Room[]>('/api/rooms', { anonymous: true })
 }
 
 export function getRoom(id: number): Promise<Room> {
   return apiFetch<Room>(`/api/rooms/${id}`, { anonymous: true })
+}
+
+/** date: 'YYYY-MM-DD' */
+export function getRoomSchedule(id: number, date: string): Promise<RoomSchedule> {
+  return apiFetch<RoomSchedule>(`/api/rooms/${id}/schedule`, { anonymous: true, query: { date } })
 }
 
 export function createRoom(body: RoomCreateBody): Promise<Room> {

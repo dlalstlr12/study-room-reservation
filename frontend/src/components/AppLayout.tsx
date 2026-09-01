@@ -52,7 +52,7 @@ export function AppLayout() {
           </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">STEP 1 · CORE</span>
+            <span className="sidebar__sub">STEP 3 · CACHE &amp; HOLD</span>
           </div>
         </div>
         <nav className="sidebar__nav">

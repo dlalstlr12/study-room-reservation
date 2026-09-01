@@ -36,6 +36,22 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	@EntityGraph(attributePaths = {"room"})
 	List<Reservation> findByMemberIdOrderByStartAtDesc(Long memberId);
 
+	/**
+	 * 특정 룸에서 {@code [dayStart, dayEnd)} 와 겹치는 RESERVED 예약 (룸 현황판용).
+	 * 겹침: 기존.startAt &lt; dayEnd AND 기존.endAt &gt; dayStart
+	 */
+	@Query("""
+			select r from Reservation r
+			where r.room.id = :roomId
+			  and r.status = com.studyroom.reservation.entity.ReservationStatus.RESERVED
+			  and r.startAt < :dayEnd
+			  and r.endAt > :dayStart
+			order by r.startAt
+			""")
+	List<Reservation> findRoomReservationsOverlapping(@Param("roomId") Long roomId,
+			@Param("dayStart") LocalDateTime dayStart,
+			@Param("dayEnd") LocalDateTime dayEnd);
+
 	long countByRoomIdAndStatus(Long roomId, ReservationStatus status);
 
 	@EntityGraph(attributePaths = {"room", "member"})

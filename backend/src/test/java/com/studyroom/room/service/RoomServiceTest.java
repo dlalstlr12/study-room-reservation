@@ -12,7 +12,6 @@ import com.studyroom.room.dto.RoomCreateRequest;
 import com.studyroom.room.dto.RoomResponse;
 import com.studyroom.room.dto.RoomUpdateRequest;
 import com.studyroom.room.entity.Room;
-import com.studyroom.room.entity.RoomStatus;
 import com.studyroom.room.repository.RoomRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -38,7 +37,7 @@ class RoomServiceTest {
 		RoomResponse response = roomService.create(request);
 
 		assertThat(response.name()).isEqualTo("스터디룸 B");
-		assertThat(response.status()).isEqualTo(RoomStatus.AVAILABLE);
+		assertThat(response.capacity()).isEqualTo(4);
 	}
 
 	@Test
@@ -48,11 +47,11 @@ class RoomServiceTest {
 		when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
 		RoomResponse response = roomService.update(1L,
-				new RoomUpdateRequest("new", 6, "new desc", RoomStatus.OCCUPIED));
+				new RoomUpdateRequest("new", 6, "new desc"));
 
 		assertThat(response.name()).isEqualTo("new");
 		assertThat(response.capacity()).isEqualTo(6);
-		assertThat(response.status()).isEqualTo(RoomStatus.OCCUPIED);
+		assertThat(response.description()).isEqualTo("new desc");
 	}
 
 	@Test

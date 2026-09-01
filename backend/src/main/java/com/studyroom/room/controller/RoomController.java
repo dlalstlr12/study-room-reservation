@@ -3,7 +3,6 @@ package com.studyroom.room.controller;
 import com.studyroom.room.dto.RoomCreateRequest;
 import com.studyroom.room.dto.RoomResponse;
 import com.studyroom.room.dto.RoomUpdateRequest;
-import com.studyroom.room.entity.RoomStatus;
 import com.studyroom.room.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Room", description = "스터디룸 조회(공개) 및 관리(ADMIN)")
@@ -32,10 +30,10 @@ public class RoomController {
 		this.roomService = roomService;
 	}
 
-	@Operation(summary = "룸 목록 조회", description = "status 파라미터로 상태 필터링 가능. 인증 불필요.")
+	@Operation(summary = "룸 목록 조회", description = "인증 불필요.")
 	@GetMapping
-	public List<RoomResponse> getRooms(@RequestParam(required = false) RoomStatus status) {
-		return roomService.getRooms(status);
+	public List<RoomResponse> getRooms() {
+		return roomService.getRooms();
 	}
 
 	@Operation(summary = "룸 상세 조회", description = "인증 불필요.")

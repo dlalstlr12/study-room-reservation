@@ -6,7 +6,6 @@ import com.studyroom.room.dto.RoomCreateRequest;
 import com.studyroom.room.dto.RoomResponse;
 import com.studyroom.room.dto.RoomUpdateRequest;
 import com.studyroom.room.entity.Room;
-import com.studyroom.room.entity.RoomStatus;
 import com.studyroom.room.repository.RoomRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -22,11 +21,8 @@ public class RoomService {
 		this.roomRepository = roomRepository;
 	}
 
-	public List<RoomResponse> getRooms(RoomStatus status) {
-		List<Room> rooms = (status == null)
-				? roomRepository.findAll()
-				: roomRepository.findAllByStatus(status);
-		return rooms.stream().map(RoomResponse::from).toList();
+	public List<RoomResponse> getRooms() {
+		return roomRepository.findAll().stream().map(RoomResponse::from).toList();
 	}
 
 	public RoomResponse getRoom(Long roomId) {
@@ -47,7 +43,7 @@ public class RoomService {
 	@Transactional
 	public RoomResponse update(Long roomId, RoomUpdateRequest request) {
 		Room room = getEntity(roomId);
-		room.update(request.name(), request.capacity(), request.description(), request.status());
+		room.update(request.name(), request.capacity(), request.description());
 		return RoomResponse.from(room);
 	}
 

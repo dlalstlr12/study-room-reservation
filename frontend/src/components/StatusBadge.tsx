@@ -12,19 +12,30 @@ const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   COMPLETED: '이용 완료',
 }
 
-const TONE: Record<RoomStatus | ReservationStatus, 'green' | 'gray' | 'red'> = {
-  AVAILABLE: 'green',
-  RESERVED: 'green',
-  HOLDING: 'gray',
-  COMPLETED: 'gray',
-  OCCUPIED: 'red',
-  CANCELLED: 'red',
+/** tone maps to a door-panel lamp colour */
+type Tone = 'free' | 'reserved' | 'stop' | 'done'
+
+const TONE: Record<RoomStatus | ReservationStatus, Tone> = {
+  AVAILABLE: 'free',
+  RESERVED: 'reserved',
+  HOLDING: 'reserved',
+  OCCUPIED: 'stop',
+  COMPLETED: 'done',
+  CANCELLED: 'done',
 }
 
 export function RoomStatusBadge({ status }: { status: RoomStatus }) {
-  return <span className={`badge badge--${TONE[status]}`}>{ROOM_LABEL[status]}</span>
+  return (
+    <span className={`badge badge--${TONE[status]}`} title={ROOM_LABEL[status]}>
+      {status}
+    </span>
+  )
 }
 
 export function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
-  return <span className={`badge badge--${TONE[status]}`}>{RESERVATION_LABEL[status]}</span>
+  return (
+    <span className={`badge badge--${TONE[status]}`} title={RESERVATION_LABEL[status]}>
+      {status}
+    </span>
+  )
 }

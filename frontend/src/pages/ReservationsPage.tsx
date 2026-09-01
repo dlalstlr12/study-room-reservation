@@ -8,7 +8,7 @@ import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Field, Input, Select, Spinner } from '../components/ui'
 import { useApi } from '../hooks/useApi'
 import type { Reservation, ReservationStatus, Room } from '../types'
-import { formatDateTime, toLocalInputValue } from '../utils/format'
+import { dayTrackSpan, formatDate, formatTime, toLocalInputValue } from '../utils/format'
 
 const MAX_HOURS = 4
 
@@ -62,7 +62,7 @@ export function ReservationsPage() {
     setSubmitting(true)
     try {
       await createReservation({ roomId: Number(roomId), startAt, endAt })
-      toast.success('예약이 생성되었습니다.')
+      toast.success('예약했습니다.')
       reservations.reload()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -152,37 +152,51 @@ export function ReservationsPage() {
         {reservations.loading && <Spinner />}
         {reservations.error && <EmptyState>{reservations.error}</EmptyState>}
         {reservations.data && reservations.data.length === 0 && (
-          <EmptyState>예약이 없습니다.</EmptyState>
+          <EmptyState>아직 예약한 룸이 없습니다. 룸 목록에서 시간을 고르세요.</EmptyState>
         )}
         {reservations.data && reservations.data.length > 0 && (
           <table className="table">
             <thead>
               <tr>
                 <th>룸</th>
-                <th>시작</th>
-                <th>종료</th>
+                <th>날짜</th>
+                <th>시간대 · 08–24시</th>
                 <th>상태</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {reservations.data.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.roomName}</td>
-                  <td>{formatDateTime(r.startAt)}</td>
-                  <td>{formatDateTime(r.endAt)}</td>
-                  <td>
-                    <ReservationStatusBadge status={r.status} />
-                  </td>
-                  <td className="table__actions">
-                    {r.status === 'RESERVED' && (
-                      <Button variant="danger" onClick={() => handleCancel(r)}>
-                        취소
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {reservations.data.map((r) => {
+                const span = dayTrackSpan(r.startAt, r.endAt)
+                const done = r.status !== 'RESERVED'
+                return (
+                  <tr key={r.id}>
+                    <td>{r.roomName}</td>
+                    <td className="table__time">{formatDate(r.startAt)}</td>
+                    <td>
+                      <span className="table__time">
+                        {formatTime(r.startAt)}–{formatTime(r.endAt)}
+                      </span>
+                      <span className={`timebar${done ? ' timebar--done' : ''}`}>
+                        <span
+                          className="timebar__fill"
+                          style={{ left: `${span.left}%`, width: `${span.width}%` }}
+                        />
+                      </span>
+                    </td>
+                    <td>
+                      <ReservationStatusBadge status={r.status} />
+                    </td>
+                    <td className="table__actions">
+                      {r.status === 'RESERVED' && (
+                        <Button variant="danger" onClick={() => handleCancel(r)}>
+                          취소
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

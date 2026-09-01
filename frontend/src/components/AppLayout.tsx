@@ -43,10 +43,16 @@ export function AppLayout() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar__brand">
-          <span className="sidebar__logo">📚</span>
+          <span className="sidebar__logo" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <rect x="2" y="2" width="12" height="12" rx="1" />
+              <path d="M9.5 2v12" />
+              <circle cx="7.7" cy="8" r="0.6" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">1단계 · 코어 도메인</span>
+            <span className="sidebar__sub">STEP 1 · CORE</span>
           </div>
         </div>
         <nav className="sidebar__nav">
@@ -64,7 +70,7 @@ export function AppLayout() {
         <div className="sidebar__foot">
           <span className={`health health--${health}`}>
             <span className="health__dot" />
-            {health === 'up' ? '백엔드 정상' : health === 'down' ? '백엔드 응답 없음' : '확인 중…'}
+            {health === 'up' ? '운영 중' : health === 'down' ? '응답 없음' : '확인 중'}
           </span>
         </div>
       </aside>
@@ -75,7 +81,7 @@ export function AppLayout() {
             {status === 'authenticated' && user ? (
               <>
                 <span className="topbar__email">{user.email}</span>
-                <span className={`badge badge--${user.role === 'ADMIN' ? 'purple' : 'gray'}`}>
+                <span className={`badge ${user.role === 'ADMIN' ? 'badge--admin' : 'badge--done'}`}>
                   {user.role}
                 </span>
                 <Button variant="ghost" onClick={handleLogout}>

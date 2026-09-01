@@ -52,10 +52,13 @@ export function DashboardPage() {
       <div className="grid grid--stats">
         <Card title="백엔드 상태">
           <p className={`stat stat--${health.state}`}>
-            {health.state === 'up' && '정상 동작 중'}
-            {health.state === 'down' && '응답 없음 — 서버 실행 확인'}
-            {health.state === 'checking' && '확인 중…'}
+            {health.state === 'up' && '운영 중'}
+            {health.state === 'down' && '응답 없음'}
+            {health.state === 'checking' && '확인 중'}
           </p>
+          {health.state === 'down' && (
+            <p className="stat__sub">백엔드를 실행한 뒤 새로고침하세요.</p>
+          )}
           {health.timestamp && (
             <p className="stat__sub">서버 시각 {formatDateTime(health.timestamp)}</p>
           )}

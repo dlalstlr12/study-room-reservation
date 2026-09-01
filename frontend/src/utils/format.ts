@@ -31,6 +31,31 @@ export function toLocalInputValue(date: Date): string {
 /** The day track the reservation time-bar sits on. */
 export const DAY_TRACK = { start: 8, end: 24 }
 
+/** 예약·홀딩은 30분 단위로만 가능하다 (백엔드 SlotValidator와 일치). */
+export const SLOT_MINUTES = 30
+export const MAX_SLOT_HOURS = 4
+
+/** "08:00" … "23:30" — 하루 30분 슬롯의 시작 시각 목록. */
+export function halfHourStarts(): string[] {
+  const out: string[] = []
+  for (let h = DAY_TRACK.start; h < DAY_TRACK.end; h++) {
+    out.push(`${pad(h)}:00`, `${pad(h)}:30`)
+  }
+  return out
+}
+
+/** date('YYYY-MM-DD') + time('HH:mm') → 'YYYY-MM-DDTHH:mm:00' (백엔드가 받는 로컬 형식) */
+export function toSlotIso(date: string, time: string): string {
+  return `${date}T${time}:00`
+}
+
+/** 'YYYY-MM-DDTHH:mm:00' 에 분을 더해 같은 형식으로 반환. */
+export function addMinutesIso(iso: string, minutes: number): string {
+  const d = new Date(iso)
+  d.setMinutes(d.getMinutes() + minutes)
+  return toLocalInputValue(d) + ':00'
+}
+
 /**
  * Position a [start, end) interval on the {@link DAY_TRACK} as left/width percentages.
  * Intervals outside the window are clamped so the bar stays inside the track.

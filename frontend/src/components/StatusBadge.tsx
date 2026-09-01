@@ -1,10 +1,4 @@
-import type { ReservationStatus, RoomStatus } from '../types'
-
-const ROOM_LABEL: Record<RoomStatus, string> = {
-  AVAILABLE: '예약 가능',
-  HOLDING: '홀딩 중',
-  OCCUPIED: '사용 중',
-}
+import type { ReservationStatus, ScheduleEntryType } from '../types'
 
 const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   RESERVED: '예약됨',
@@ -15,27 +9,34 @@ const RESERVATION_LABEL: Record<ReservationStatus, string> = {
 /** tone maps to a door-panel lamp colour */
 type Tone = 'free' | 'reserved' | 'stop' | 'done'
 
-const TONE: Record<RoomStatus | ReservationStatus, Tone> = {
-  AVAILABLE: 'free',
+const RESERVATION_TONE: Record<ReservationStatus, Tone> = {
   RESERVED: 'reserved',
-  HOLDING: 'reserved',
-  OCCUPIED: 'stop',
   COMPLETED: 'done',
   CANCELLED: 'done',
 }
 
-export function RoomStatusBadge({ status }: { status: RoomStatus }) {
+const SCHEDULE_LABEL: Record<ScheduleEntryType, string> = {
+  RESERVED: '예약',
+  HOLDING: '홀딩',
+}
+
+const SCHEDULE_TONE: Record<ScheduleEntryType, Tone> = {
+  RESERVED: 'reserved',
+  HOLDING: 'free',
+}
+
+export function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
   return (
-    <span className={`badge badge--${TONE[status]}`} title={ROOM_LABEL[status]}>
+    <span className={`badge badge--${RESERVATION_TONE[status]}`} title={RESERVATION_LABEL[status]}>
       {status}
     </span>
   )
 }
 
-export function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
+export function ScheduleTypeBadge({ type }: { type: ScheduleEntryType }) {
   return (
-    <span className={`badge badge--${TONE[status]}`} title={RESERVATION_LABEL[status]}>
-      {status}
+    <span className={`badge badge--${SCHEDULE_TONE[type]}`} title={SCHEDULE_LABEL[type]}>
+      {type}
     </span>
   )
 }

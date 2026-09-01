@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ReservationsPage } from './pages/ReservationsPage'
+import { RoomDetailPage } from './pages/RoomDetailPage'
 import { RoomsPage } from './pages/RoomsPage'
 import { SignupPage } from './pages/SignupPage'
 
@@ -14,6 +15,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="rooms" element={<RoomsPage />} />
+        <Route path="rooms/:roomId" element={<RoomDetailPage />} />
         <Route
           path="reservations"
           element={

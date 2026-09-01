@@ -1,6 +1,6 @@
 export type MemberRole = 'USER' | 'ADMIN'
-export type RoomStatus = 'AVAILABLE' | 'HOLDING' | 'OCCUPIED'
 export type ReservationStatus = 'RESERVED' | 'CANCELLED' | 'COMPLETED'
+export type ScheduleEntryType = 'RESERVED' | 'HOLDING'
 
 export interface Member {
   id: number
@@ -15,7 +15,6 @@ export interface Room {
   name: string
   capacity: number
   description: string | null
-  status: RoomStatus
 }
 
 export interface Reservation {
@@ -27,6 +26,31 @@ export interface Reservation {
   endAt: string
   status: ReservationStatus
   createdAt: string
+}
+
+export interface Hold {
+  holdId: string
+  roomId: number
+  roomName: string
+  startAt: string
+  endAt: string
+  /** ISO — 이 시각이 지나면 홀딩이 자동 해제된다 */
+  expiresAt: string
+}
+
+export interface RoomScheduleEntry {
+  type: ScheduleEntryType
+  startAt: string
+  endAt: string
+  /** 로그인한 사용자 본인의 예약/홀딩인지 */
+  mine: boolean
+}
+
+export interface RoomSchedule {
+  roomId: number
+  roomName: string
+  date: string
+  entries: RoomScheduleEntry[]
 }
 
 export interface TokenResponse {

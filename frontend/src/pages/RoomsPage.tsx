@@ -4,29 +4,17 @@ import { ApiError } from '../api/client'
 import { createRoom, deleteRoom, listRooms, updateRoom } from '../api/rooms'
 import type { RoomCreateBody } from '../api/rooms'
 import { useAuth } from '../auth/AuthContext'
-import { RoomStatusBadge } from '../components/StatusBadge'
 import { useToast } from '../components/ToastContext'
-import { Button, Card, EmptyState, Field, Input, Select, Spinner, Textarea } from '../components/ui'
+import { Button, Card, EmptyState, Field, Input, Spinner, Textarea } from '../components/ui'
 import { useApi } from '../hooks/useApi'
-import type { Room, RoomStatus } from '../types'
-
-const STATUS_OPTIONS: { value: '' | RoomStatus; label: string }[] = [
-  { value: '', label: '전체' },
-  { value: 'AVAILABLE', label: '예약 가능' },
-  { value: 'HOLDING', label: '홀딩 중' },
-  { value: 'OCCUPIED', label: '사용 중' },
-]
+import type { Room } from '../types'
 
 export function RoomsPage() {
   const { isAdmin, status: authStatus } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
 
-  const [filter, setFilter] = useState<'' | RoomStatus>('')
-  const { data, loading, error, reload } = useApi<Room[]>(
-    () => listRooms(filter || undefined),
-    [filter],
-  )
+  const { data, loading, error, reload } = useApi<Room[]>(() => listRooms(), [])
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -37,8 +25,8 @@ export function RoomsPage() {
     reload()
   }
 
-  const handleUpdate = async (id: number, body: RoomCreateBody, roomStatus: RoomStatus) => {
-    await updateRoom(id, { ...body, status: roomStatus })
+  const handleUpdate = async (id: number, body: RoomCreateBody) => {
+    await updateRoom(id, body)
     toast.success('룸을 수정했습니다.')
     setEditingId(null)
     reload()
@@ -57,25 +45,11 @@ export function RoomsPage() {
 
   return (
     <div className="page">
-      <div className="page__head page__head--row">
-        <div>
-          <h1>룸</h1>
-          <p className="page__lead">조회는 누구나, 생성·수정·삭제는 ADMIN 권한이 필요합니다.</p>
-        </div>
-        <div className="filter">
-          <label htmlFor="room-filter">상태</label>
-          <Select
-            id="room-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as '' | RoomStatus)}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </div>
+      <div className="page__head">
+        <h1>룸</h1>
+        <p className="page__lead">
+          룸을 눌러 예약 현황을 보고 홀딩하세요. 생성·수정·삭제는 ADMIN 권한이 필요합니다.
+        </p>
       </div>
 
       {isAdmin && (
@@ -107,32 +81,33 @@ export function RoomsPage() {
                 <RoomForm
                   initial={room}
                   submitLabel="저장"
-                  withStatus
-                  onSubmit={(body, roomStatus) =>
-                    handleUpdate(room.id, body, roomStatus ?? room.status)
-                  }
+                  onSubmit={(body) => handleUpdate(room.id, body)}
                   onCancel={() => setEditingId(null)}
                 />
               </Card>
             ) : (
-              <article key={room.id} className="room-card">
+              <article
+                key={room.id}
+                className="room-card room-card--link"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/rooms/${room.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') navigate(`/rooms/${room.id}`)
+                }}
+              >
                 <header className="room-card__head">
                   <h3>{room.name}</h3>
-                  <RoomStatusBadge status={room.status} />
+                  <span className="room-card__id">#{room.id}</span>
                 </header>
                 <p className="room-card__meta">정원 {room.capacity}명</p>
                 {room.description && <p className="room-card__desc">{room.description}</p>}
-                <footer className="room-card__foot">
-                  {authStatus === 'authenticated' && !isAdmin && room.status === 'AVAILABLE' && (
-                    <Button
-                      variant="primary"
-                      onClick={() => navigate(`/reservations?roomId=${room.id}`)}
-                    >
-                      예약하기
-                    </Button>
-                  )}
+                <footer className="room-card__foot" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="primary" onClick={() => navigate(`/rooms/${room.id}`)}>
+                    예약 현황
+                  </Button>
                   {authStatus !== 'authenticated' && (
-                    <span className="muted">로그인 후 예약 가능</span>
+                    <span className="muted">로그인 후 홀딩 가능</span>
                   )}
                   {isAdmin && (
                     <>
@@ -157,17 +132,15 @@ export function RoomsPage() {
 interface RoomFormProps {
   initial?: Room
   submitLabel: string
-  withStatus?: boolean
-  onSubmit: (body: RoomCreateBody, status?: RoomStatus) => Promise<void>
+  onSubmit: (body: RoomCreateBody) => Promise<void>
   onCancel?: () => void
 }
 
-function RoomForm({ initial, submitLabel, withStatus, onSubmit, onCancel }: RoomFormProps) {
+function RoomForm({ initial, submitLabel, onSubmit, onCancel }: RoomFormProps) {
   const toast = useToast()
   const [name, setName] = useState(initial?.name ?? '')
   const [capacity, setCapacity] = useState(String(initial?.capacity ?? 4))
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [roomStatus, setRoomStatus] = useState<RoomStatus>(initial?.status ?? 'AVAILABLE')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -182,7 +155,7 @@ function RoomForm({ initial, submitLabel, withStatus, onSubmit, onCancel }: Room
 
     setSubmitting(true)
     try {
-      await onSubmit({ name: name.trim(), capacity: cap, description: description.trim() }, roomStatus)
+      await onSubmit({ name: name.trim(), capacity: cap, description: description.trim() })
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors.length) {
         setErrors(Object.fromEntries(err.fieldErrors.map((f) => [f.field, f.reason])))
@@ -209,24 +182,8 @@ function RoomForm({ initial, submitLabel, withStatus, onSubmit, onCancel }: Room
         />
       </Field>
       <Field label="설명" error={errors.description}>
-        <Textarea
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
-      {withStatus && (
-        <Field label="상태">
-          <Select
-            value={roomStatus}
-            onChange={(e) => setRoomStatus(e.target.value as RoomStatus)}
-          >
-            <option value="AVAILABLE">예약 가능</option>
-            <option value="HOLDING">홀딩 중</option>
-            <option value="OCCUPIED">사용 중</option>
-          </Select>
-        </Field>
-      )}
       <div className="form__row">
         <Button type="submit" loading={submitting}>
           {submitLabel}

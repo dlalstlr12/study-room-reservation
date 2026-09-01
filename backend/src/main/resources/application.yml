@@ -17,5 +17,5 @@ app:
 
 reservation:
   lock:
-    # none | pessimistic | distributed  — 부하테스트 비교용으로 전환
-    strategy: none
+    # none | pessimistic | distributed  (배경·비교: docs/troubleshooting.md)
+    strategy: pessimistic

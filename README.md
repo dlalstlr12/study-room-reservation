@@ -80,7 +80,7 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 | GET | `/api/members/me` | 인증 |
 | GET | `/api/rooms`, `/api/rooms/{id}` | 공개 |
 | POST/PUT/DELETE | `/api/rooms`, `/api/rooms/{id}` | ADMIN |
-| POST | `/api/reservations` | 인증 (동시성 제어 없음 — 2단계 예정) |
+| POST | `/api/reservations` | 인증 (동시성 제어 — 아래 참고) |
 | GET | `/api/reservations/me` | 인증 |
 | GET | `/api/reservations/{id}` | 인증 (본인 또는 ADMIN) |
 | POST | `/api/reservations/{id}/cancel` | 인증 (본인) |
@@ -94,7 +94,20 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 > `jwt.secret`은 `application-local.yml`에 개발용으로만 들어 있습니다(최소 32바이트).
 > 운영 배포 시 환경변수 등으로 반드시 교체하세요.
 
+## 동시성 제어 (로드맵 2단계)
+
+락 없는 예약 생성에서 오버부킹(같은 룸·겹치는 시간에 예약 여러 건)이 재현됐다.
+`reservation.lock.strategy`로 전략을 전환하며 해결·비교했다. 전 과정: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
+
+| 전략 | 오버부킹 | 처리량(req/s) | p95 |
+|---|---|---|---|
+| `none` | **20건 (버그)** | 477 | 18ms |
+| `pessimistic` (기본값) | 1건 | 344 | 63ms |
+| `distributed` (Redisson) | 1건 | 143 | 155ms |
+
+- 재현/검증: `backend/src/test/java/com/studyroom/reservation/concurrency/` (Testcontainers)
+- 부하테스트: `docker run --rm -i grafana/k6 run - < backend/load-test/reservation-conflict.js`
+
 ## 다음 단계
 
-로드맵 2단계(동시성 제어): 락 없는 예약 생성의 동시성 버그를 테스트로 재현 →
-비관적 락 → Redisson 분산 락 순으로 해결하고 처리량을 수치로 비교합니다.
+로드맵 3단계(캐싱/홀딩): Redis TTL 기반 좌석 홀딩(5~10분), 룸 상태 캐싱.

@@ -14,3 +14,8 @@ springdoc:
 app:
   cors:
     allowed-origins: http://localhost:5173
+
+reservation:
+  lock:
+    # none | pessimistic | distributed  (배경·비교: docs/troubleshooting.md)
+    strategy: pessimistic

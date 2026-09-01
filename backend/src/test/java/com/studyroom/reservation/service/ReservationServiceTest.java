@@ -23,7 +23,9 @@ import com.studyroom.reservation.repository.ReservationRepository;
 import com.studyroom.room.entity.Room;
 import com.studyroom.room.repository.RoomRepository;
 import com.studyroom.room.service.RoomService;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,9 +74,14 @@ class ReservationServiceTest {
 		return new ReservationCreateRequest(10L, start, end);
 	}
 
+	/** 30분 슬롯에 정렬된 내일의 시각. */
+	private static LocalDateTime slot(int hour, int minute) {
+		return LocalDateTime.of(LocalDate.now().plusDays(1), LocalTime.of(hour, minute));
+	}
+
 	@Test
 	void 겹치지_않으면_예약이_생성된다() {
-		LocalDateTime start = LocalDateTime.now().plusDays(1);
+		LocalDateTime start = slot(10, 0);
 		when(memberService.getById(1L)).thenReturn(member);
 		when(roomService.getEntity(10L)).thenReturn(room);
 		when(reservationRepository.existsOverlap(eq(10L), any(), any())).thenReturn(false);
@@ -88,7 +95,7 @@ class ReservationServiceTest {
 
 	@Test
 	void 시간이_겹치면_RESERVATION_TIME_CONFLICT() {
-		LocalDateTime start = LocalDateTime.now().plusDays(1);
+		LocalDateTime start = slot(10, 0);
 		when(memberService.getById(1L)).thenReturn(member);
 		when(roomService.getEntity(10L)).thenReturn(room);
 		when(reservationRepository.existsOverlap(eq(10L), any(), any())).thenReturn(true);
@@ -101,7 +108,7 @@ class ReservationServiceTest {
 
 	@Test
 	void 시작이_종료보다_늦으면_INVALID_RESERVATION_TIME() {
-		LocalDateTime start = LocalDateTime.now().plusDays(1);
+		LocalDateTime start = slot(10, 0);
 
 		assertThatThrownBy(() -> reservationService.create(1L, request(start, start.minusHours(1))))
 				.isInstanceOf(BusinessException.class)
@@ -110,9 +117,18 @@ class ReservationServiceTest {
 
 	@Test
 	void 최대_이용시간을_초과하면_INVALID_RESERVATION_TIME() {
-		LocalDateTime start = LocalDateTime.now().plusDays(1);
+		LocalDateTime start = slot(10, 0);
 
 		assertThatThrownBy(() -> reservationService.create(1L, request(start, start.plusHours(5))))
+				.isInstanceOf(BusinessException.class)
+				.extracting("errorCode").isEqualTo(ErrorCode.INVALID_RESERVATION_TIME);
+	}
+
+	@Test
+	void 슬롯에_정렬되지_않으면_INVALID_RESERVATION_TIME() {
+		LocalDateTime start = slot(10, 0).plusMinutes(10);
+
+		assertThatThrownBy(() -> reservationService.create(1L, request(start, start.plusHours(1))))
 				.isInstanceOf(BusinessException.class)
 				.extracting("errorCode").isEqualTo(ErrorCode.INVALID_RESERVATION_TIME);
 	}

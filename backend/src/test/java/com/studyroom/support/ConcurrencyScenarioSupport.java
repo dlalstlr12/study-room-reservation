@@ -11,6 +11,7 @@ import com.studyroom.reservation.service.ReservationService;
 import com.studyroom.room.entity.Room;
 import com.studyroom.room.repository.RoomRepository;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -58,7 +59,8 @@ public abstract class ConcurrencyScenarioSupport extends IntegrationTest {
 	 * {@code threads}개 스레드가 배리어에서 동시에 출발해 같은 룸·같은 구간으로 예약을 생성한다.
 	 */
 	protected Result runConcurrentCreates(long roomId, List<Long> memberIds, int threads) {
-		LocalDateTime start = LocalDateTime.now().plusDays(1).withNano(0);
+		// 30분 슬롯에 정렬 (SlotValidator 규칙)
+		LocalDateTime start = LocalDateTime.now().plusDays(1).truncatedTo(ChronoUnit.HOURS);
 		ReservationCreateRequest request = new ReservationCreateRequest(roomId, start, start.plusHours(1));
 
 		AtomicInteger success = new AtomicInteger();

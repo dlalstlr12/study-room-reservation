@@ -25,7 +25,8 @@ public enum ErrorCode {
 	INVALID_RESERVATION_TIME(HttpStatus.BAD_REQUEST, "예약 시간이 올바르지 않습니다."),
 	RESERVATION_TIME_CONFLICT(HttpStatus.CONFLICT, "해당 시간에 이미 예약이 있습니다."),
 	RESERVATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 예약만 접근할 수 있습니다."),
-	RESERVATION_NOT_CANCELABLE(HttpStatus.CONFLICT, "취소할 수 없는 상태의 예약입니다.");
+	RESERVATION_NOT_CANCELABLE(HttpStatus.CONFLICT, "취소할 수 없는 상태의 예약입니다."),
+	RESERVATION_LOCK_TIMEOUT(HttpStatus.CONFLICT, "요청이 몰려 예약을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
 
 	private final HttpStatus status;
 	private final String message;

@@ -79,7 +79,8 @@ public abstract class ConcurrencyScenarioSupport extends IntegrationTest {
 					reservationService.create(memberId, request);
 					success.incrementAndGet();
 				} catch (BusinessException e) {
-					if (e.getErrorCode() == ErrorCode.RESERVATION_TIME_CONFLICT) {
+					if (e.getErrorCode() == ErrorCode.RESERVATION_TIME_CONFLICT
+							|| e.getErrorCode() == ErrorCode.RESERVATION_LOCK_TIMEOUT) {
 						conflict.incrementAndGet();
 					} else {
 						other.incrementAndGet();

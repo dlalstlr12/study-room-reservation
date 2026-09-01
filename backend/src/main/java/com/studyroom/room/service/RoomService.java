@@ -7,7 +7,10 @@ import com.studyroom.room.dto.RoomResponse;
 import com.studyroom.room.dto.RoomUpdateRequest;
 import com.studyroom.room.entity.Room;
 import com.studyroom.room.repository.RoomRepository;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,12 @@ public class RoomService {
 	public Room getEntity(Long roomId) {
 		return roomRepository.findById(roomId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+	}
+
+	/** roomId → 룸 이름. 존재하지 않는 id는 결과에서 빠진다. */
+	public Map<Long, String> getRoomNames(Collection<Long> roomIds) {
+		return roomRepository.findAllById(roomIds).stream()
+				.collect(Collectors.toMap(Room::getId, Room::getName));
 	}
 
 	@Transactional

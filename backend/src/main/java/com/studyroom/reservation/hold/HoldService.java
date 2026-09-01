@@ -1,5 +1,6 @@
 package com.studyroom.reservation.hold;
 
+import com.studyroom.common.cache.RoomScheduleCache;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.DistributedLock;
@@ -37,17 +38,20 @@ public class HoldService {
 	private final MemberService memberService;
 	private final TransactionTemplate txTemplate;
 	private final ReservationHoldProperties holdProperties;
+	private final RoomScheduleCache roomScheduleCache;
 	private final DistributedLock roomLock;
 
 	public HoldService(HoldRepository holdRepository, ReservationRepository reservationRepository,
 			RoomService roomService, MemberService memberService, TransactionTemplate txTemplate,
-			ReservationHoldProperties holdProperties, RedissonClient redissonClient) {
+			ReservationHoldProperties holdProperties, RoomScheduleCache roomScheduleCache,
+			RedissonClient redissonClient) {
 		this.holdRepository = holdRepository;
 		this.reservationRepository = reservationRepository;
 		this.roomService = roomService;
 		this.memberService = memberService;
 		this.txTemplate = txTemplate;
 		this.holdProperties = holdProperties;
+		this.roomScheduleCache = roomScheduleCache;
 		this.roomLock = new RedissonDistributedLock(redissonClient);
 	}
 
@@ -69,11 +73,12 @@ public class HoldService {
 			holdRepository.save(created, holdProperties.ttl());
 			return created;
 		});
+		roomScheduleCache.evictAll();
 		return HoldResponse.from(hold, room.getName());
 	}
 
 	public ReservationResponse confirm(Long memberId, Long roomId, String holdId) {
-		return roomLock.runWithLock(lockKey(roomId), () -> {
+		ReservationResponse result = roomLock.runWithLock(lockKey(roomId), () -> {
 			Hold hold = holdRepository.find(roomId, holdId)
 					.orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_HOLD_NOT_FOUND));
 			if (!hold.ownedBy(memberId)) {
@@ -92,6 +97,8 @@ public class HoldService {
 			holdRepository.delete(hold);
 			return reservation;
 		});
+		roomScheduleCache.evictAll();
+		return result;
 	}
 
 	public void release(Long memberId, Long roomId, String holdId) {
@@ -101,6 +108,7 @@ public class HoldService {
 			throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
 		}
 		holdRepository.delete(hold);
+		roomScheduleCache.evictAll();
 	}
 
 	public List<HoldResponse> myHolds(Long memberId) {

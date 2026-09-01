@@ -1,5 +1,6 @@
 package com.studyroom.reservation.service;
 
+import com.studyroom.common.cache.RoomScheduleCache;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.DistributedLock;
@@ -31,10 +32,12 @@ public class ReservationService {
 	private final TransactionTemplate txTemplate;
 	private final DistributedLock distributedLock;
 	private final ReservationLockProperties lockProperties;
+	private final RoomScheduleCache roomScheduleCache;
 
 	public ReservationService(ReservationRepository reservationRepository, MemberService memberService,
 			RoomService roomService, RoomRepository roomRepository, TransactionTemplate txTemplate,
-			DistributedLock distributedLock, ReservationLockProperties lockProperties) {
+			DistributedLock distributedLock, ReservationLockProperties lockProperties,
+			RoomScheduleCache roomScheduleCache) {
 		this.reservationRepository = reservationRepository;
 		this.memberService = memberService;
 		this.roomService = roomService;
@@ -42,6 +45,7 @@ public class ReservationService {
 		this.txTemplate = txTemplate;
 		this.distributedLock = distributedLock;
 		this.lockProperties = lockProperties;
+		this.roomScheduleCache = roomScheduleCache;
 	}
 
 	/**
@@ -54,8 +58,10 @@ public class ReservationService {
 		SlotValidator.validate(request.startAt(), request.endAt());
 
 		String lockKey = "lock:reservation:room:" + request.roomId();
-		return distributedLock.runWithLock(lockKey,
+		ReservationResponse created = distributedLock.runWithLock(lockKey,
 				() -> txTemplate.execute(status -> doCreate(memberId, request)));
+		roomScheduleCache.evictAll();
+		return created;
 	}
 
 	private ReservationResponse doCreate(Long memberId, ReservationCreateRequest request) {
@@ -103,6 +109,7 @@ public class ReservationService {
 			throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
 		}
 		reservation.cancel();
+		roomScheduleCache.evictAll();
 		return ReservationResponse.from(reservation);
 	}
 }

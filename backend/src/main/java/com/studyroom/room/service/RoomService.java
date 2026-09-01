@@ -1,5 +1,6 @@
 package com.studyroom.room.service;
 
+import com.studyroom.common.config.CacheConfig;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.room.dto.RoomCreateRequest;
@@ -11,6 +12,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +27,12 @@ public class RoomService {
 		this.roomRepository = roomRepository;
 	}
 
+	@Cacheable(cacheNames = CacheConfig.ROOMS, key = "'all'")
 	public List<RoomResponse> getRooms() {
 		return roomRepository.findAll().stream().map(RoomResponse::from).toList();
 	}
 
+	@Cacheable(cacheNames = CacheConfig.ROOMS, key = "#roomId")
 	public RoomResponse getRoom(Long roomId) {
 		return RoomResponse.from(getEntity(roomId));
 	}
@@ -44,12 +49,14 @@ public class RoomService {
 	}
 
 	@Transactional
+	@CacheEvict(cacheNames = CacheConfig.ROOMS, allEntries = true)
 	public RoomResponse create(RoomCreateRequest request) {
 		Room room = Room.create(request.name(), request.capacity(), request.description());
 		return RoomResponse.from(roomRepository.save(room));
 	}
 
 	@Transactional
+	@CacheEvict(cacheNames = CacheConfig.ROOMS, allEntries = true)
 	public RoomResponse update(Long roomId, RoomUpdateRequest request) {
 		Room room = getEntity(roomId);
 		room.update(request.name(), request.capacity(), request.description());
@@ -57,6 +64,7 @@ public class RoomService {
 	}
 
 	@Transactional
+	@CacheEvict(cacheNames = CacheConfig.ROOMS, allEntries = true)
 	public void delete(Long roomId) {
 		Room room = getEntity(roomId);
 		roomRepository.delete(room);

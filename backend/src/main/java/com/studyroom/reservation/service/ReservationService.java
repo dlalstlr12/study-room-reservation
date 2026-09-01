@@ -3,6 +3,7 @@ package com.studyroom.reservation.service;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.DistributedLock;
+import com.studyroom.common.lock.LockStrategy;
 import com.studyroom.common.lock.ReservationLockProperties;
 import com.studyroom.member.entity.Member;
 import com.studyroom.member.service.MemberService;
@@ -12,6 +13,7 @@ import com.studyroom.reservation.entity.Reservation;
 import com.studyroom.reservation.entity.ReservationStatus;
 import com.studyroom.reservation.repository.ReservationRepository;
 import com.studyroom.room.entity.Room;
+import com.studyroom.room.repository.RoomRepository;
 import com.studyroom.room.service.RoomService;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -29,16 +31,18 @@ public class ReservationService {
 	private final ReservationRepository reservationRepository;
 	private final MemberService memberService;
 	private final RoomService roomService;
+	private final RoomRepository roomRepository;
 	private final TransactionTemplate txTemplate;
 	private final DistributedLock distributedLock;
 	private final ReservationLockProperties lockProperties;
 
 	public ReservationService(ReservationRepository reservationRepository, MemberService memberService,
-			RoomService roomService, TransactionTemplate txTemplate, DistributedLock distributedLock,
-			ReservationLockProperties lockProperties) {
+			RoomService roomService, RoomRepository roomRepository, TransactionTemplate txTemplate,
+			DistributedLock distributedLock, ReservationLockProperties lockProperties) {
 		this.reservationRepository = reservationRepository;
 		this.memberService = memberService;
 		this.roomService = roomService;
+		this.roomRepository = roomRepository;
 		this.txTemplate = txTemplate;
 		this.distributedLock = distributedLock;
 		this.lockProperties = lockProperties;
@@ -59,6 +63,12 @@ public class ReservationService {
 	}
 
 	private ReservationResponse doCreate(Long memberId, ReservationCreateRequest request) {
+		if (lockProperties.strategy() == LockStrategy.PESSIMISTIC) {
+			// 룸 행에 FOR UPDATE — 같은 룸의 예약 생성이 이 트랜잭션 뒤로 줄 선다.
+			roomRepository.findByIdForUpdate(request.roomId())
+					.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		}
+
 		Member member = memberService.getById(memberId);
 		Room room = roomService.getEntity(request.roomId());
 

@@ -21,6 +21,7 @@ import com.studyroom.reservation.entity.Reservation;
 import com.studyroom.reservation.entity.ReservationStatus;
 import com.studyroom.reservation.repository.ReservationRepository;
 import com.studyroom.room.entity.Room;
+import com.studyroom.room.repository.RoomRepository;
 import com.studyroom.room.service.RoomService;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -43,6 +44,8 @@ class ReservationServiceTest {
 	@Mock
 	private RoomService roomService;
 	@Mock
+	private RoomRepository roomRepository;
+	@Mock
 	private TransactionTemplate txTemplate;
 
 	private ReservationService reservationService;
@@ -53,7 +56,8 @@ class ReservationServiceTest {
 	@BeforeEach
 	void setUp() {
 		reservationService = new ReservationService(reservationRepository, memberService, roomService,
-				txTemplate, new NoOpDistributedLock(), new ReservationLockProperties(LockStrategy.NONE));
+				roomRepository, txTemplate, new NoOpDistributedLock(),
+				new ReservationLockProperties(LockStrategy.NONE));
 		// txTemplate.execute 는 콜백을 그대로 실행한다 (트랜잭션 경계는 통합 테스트에서 검증).
 		lenient().when(txTemplate.execute(any())).thenAnswer(
 				inv -> inv.getArgument(0, TransactionCallback.class).doInTransaction(null));

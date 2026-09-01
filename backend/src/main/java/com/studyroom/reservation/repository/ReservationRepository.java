@@ -36,6 +36,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	@EntityGraph(attributePaths = {"room"})
 	List<Reservation> findByMemberIdOrderByStartAtDesc(Long memberId);
 
+	long countByRoomIdAndStatus(Long roomId, ReservationStatus status);
+
 	@EntityGraph(attributePaths = {"room", "member"})
 	@Query("select r from Reservation r where r.id = :id")
 	Optional<Reservation> findDetailById(@Param("id") Long id);

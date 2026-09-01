@@ -116,3 +116,84 @@ Hikari pool 20, 로깅 WARN. k6 20 VU × 30초, 같은 룸·같은 시간대로�
 
 재현/검증 코드: `backend/src/test/java/com/studyroom/reservation/concurrency/`,
 부하 스크립트: `backend/load-test/reservation-conflict.js`.
+
+---
+
+## 3단계 — 홀딩과 캐싱
+
+### 문제 1 — 락으로도 못 막는 "고르는 시간"
+
+2단계 락은 "동시에 1명만 성공"을 보장한다. 하지만 실제 서비스에서는 룸을 고르고 결제까지 몇 분이
+걸린다. 락 수명은 DB 트랜잭션에 묶여 있어 그 몇 분을 잡아둘 수 없다. 여러 명이 같은 시간대를
+고르면 결제 화면까지 갔다가 확정 시점에 1명 빼고 전부 409 — 시간 낭비다.
+
+**해결 — Redis TTL 홀딩**: 먼저 고른 사람에게 `hold:{roomId}:{holdId}` 키(TTL 10분)로 확정 유예를
+준다. 나머지는 즉시 `RESERVATION_HOLD_CONFLICT`(409)로 빠른 실패. 예약 생성은 이제
+`홀딩 → 확정(RESERVED)` 2단계다.
+
+- 홀딩·확정 모두 `reservation.lock.strategy`(2단계)와 무관하게 **항상 Redisson 룸 락** 안에서
+  예약 겹침 + 다른 홀딩 겹침을 함께 검사한다(홀딩은 Redis 전용 개념이라 락도 Redis로 통일).
+- 예약·홀딩 시간은 **30분 슬롯**으로 고정(`SlotValidator`) — 프론트 타임라인을 눈금으로 그릴 수
+  있고 겹침 계산이 단순해진다.
+- k6(`holding-rush.js`, 20 VU × 30s, 같은 슬롯): 홀딩 성공 **1건**, 나머지 409, 5xx 0,
+  p95 ≈ 143ms.
+
+### 문제 2 — 홀딩만 하고 이탈하면 자리가 안 풀린다
+
+홀딩 키는 TTL로 사라지지만, **앱은 "그 키가 사라졌다"를 모른다**. Redis는 키를 조용히 지운다.
+앱이 알아야 인덱스를 정리하고 룸 현황 캐시를 비운다.
+
+**keyspace 만료 이벤트 — 그리고 그 한계**: `notify-keyspace-events Ex`를 켜면 Redis가
+`__keyevent@*__:expired` 채널에 만료된 키 이름을 발행한다(`RedisKeyspaceConfig`가 앱 시작 시
+프로그램으로 설정 — compose/Testcontainers 커맨드를 안 건드려도 된다). `HoldExpirationListener`가
+구독해 즉시 반응한다.
+
+그런데 Redis 문서는 이 이벤트가 **신뢰성 있는 전달이 아니라고** 명시한다 — 앱이 그 순간 죽어
+있었으면 유실되고, 만료 처리가 지연될 수도 있다.
+
+**해결 — 이벤트 + 백스톱 스윕(2단)**: `HoldSweepScheduler`가 1분마다 `hold:index:*`를 훑어
+값 키가 사라진 항목을 정리한다. 이벤트가 즉시성을, 스케줄러가 최종 정합성을 담당한다.
+인덱스 항목은 조회 시에도 값이 없으면 그 자리에서 제거한다(lazy).
+
+- 검증: `HoldExpiryTest`(TTL 2초로 오버라이드) — 만료 후 같은 슬롯 재홀딩 가능, raw 인덱스가
+  결국 빈다.
+
+### 문제 3 — 룸 목록·현황판 반복 조회
+
+현황판(프론트 타임라인)은 룸 목록과 룸별 예약현황을 자주 폴링한다. 매번 `SELECT`.
+
+**해결 — Spring Cache + Redis**, 캐시마다 성격에 맞춰 TTL을 나눴다.
+
+| 캐시 | TTL | 무효화 |
+|---|---|---|
+| `rooms` (목록·상세) | 10분 | ADMIN 룸 CRUD 시 전체 |
+| `room-schedule` (룸별 하루) | 30초 | 예약 생성/취소/확정, 홀딩 생성/해제/만료 시 전체 |
+
+`room-schedule`은 무효화 지점이 5곳(룸 CRUD·예약 2·홀딩 3)이라 룸/날짜별 정밀 키 관리 대신
+**전체 비우기 + 짧은 TTL**을 택했다. 무효화는 `RoomScheduleCache.evictAll()` 한 곳으로 모아
+호출한다. `mine` 플래그는 뷰어마다 다르므로 **캐시에는 뷰어-무관 데이터만 담고** `mine`은
+캐시 밖에서 계산한다(사용자별로 캐시가 쪼개지지 않게).
+
+**수치** (k6 `room-read.js`, 30 VU × 30s, `GET /rooms` + `GET /rooms/{id}/schedule`):
+
+| 구성 | p95 | 처리량(req/s) | 실패 |
+|---|---|---|---|
+| 캐시 없음 (`spring.cache.type=none`) | 68ms | 738 | 0 |
+| Redis 캐싱 | 34ms | 1,700 | 0 |
+
+### redisson JCache와의 자동설정 충돌
+
+`redisson-spring-boot-starter`가 JCache `CachingProvider`를 함께 올려서, Spring Boot 캐시
+자동설정이 `RedisCacheManager` 대신 JCache를 골라 `@Cacheable`이 깨졌다
+(`getCache("rooms")` → `IllegalArgumentException`). `spring.cache.type=redis`를 명시해 해결.
+
+### 룸 상태(status) 컬럼 제거
+
+`Room.status`(AVAILABLE/HOLDING/OCCUPIED)는 룸 단위 단일 값인데, 이 도메인은 시간대 단위 예약이라
+"룸이 지금 무슨 상태인가"를 값 하나로 말할 수 없다(다음 주 슬롯을 홀딩해도 룸 전체가 HOLDING?).
+`V2` 마이그레이션으로 컬럼을 걷어내고, 특정 시점 가용성은 **예약 겹침 + 활성 홀딩**으로 판단하며
+룸 페이지는 "룸 → 클릭 → 그 룸의 예약 현황 타임라인"으로 바꿨다.
+
+재현/검증 코드: `backend/src/test/java/com/studyroom/reservation/hold/`,
+`.../reservation/schedule/`, `.../common/cache/`.
+부하 스크립트: `backend/load-test/holding-rush.js`, `backend/load-test/room-read.js`.

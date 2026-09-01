@@ -60,7 +60,7 @@ erDiagram
 | 엔티티 | 핵심 컬럼 | 비고 |
 |---|---|---|
 | Member | id, email, role, subscriptionStatus | JWT 인증 대상 |
-| Room | id, name, capacity, status | 상태: AVAILABLE/HOLDING/OCCUPIED |
+| Room | id, name, capacity | ~~status~~ 3단계에서 제거 — 시간대 단위 예약이라 룸 단일 상태값이 무의미, 가용성은 예약 겹침 + Redis 홀딩으로 판단 |
 | Reservation | id, memberId, roomId, startAt, endAt, status, version | 낙관적락용 version 컬럼 |
 | UsageLog | id, memberId, roomId, duration | 랭킹 집계 소스, 퇴실 시 생성 |
 | LotteryEvent | id, targetTime, status | "현재 이용중" 스냅샷 기준 시점 |
@@ -175,7 +175,7 @@ erDiagram
 
 - [x] **1단계 — 코어 도메인**: 회원 인증(JWT), 룸/예약 기본 CRUD, Swagger 문서화
 - [x] **2단계 — 동시성**: 락 없는 버전 → 비관적락 → Redisson 분산락 → 동시성 테스트 + 비교 기록
-- [ ] **3단계 — 캐싱/홀딩**: Redis TTL 기반 홀딩, 룸 상태 캐싱
+- [x] **3단계 — 캐싱/홀딩**: Redis TTL 기반 좌석 홀딩(10분) + keyspace 만료 이벤트/백스톱, 룸 목록·현황 Redis 캐싱, 30분 슬롯
 - [ ] **4단계 — 실시간**: WebSocket 좌석 상태 브로드캐스트
 - [ ] **5단계 — 이벤트 추첨**: 스케줄러 기반 추첨 로직 + 당첨자 알림 발행
 - [ ] **6단계 — 메시징/알림**: Kafka 또는 RabbitMQ 도입, 알림 워커, 재시도+DLQ

@@ -3,6 +3,10 @@ spring:
     name: study-room-reservation
   profiles:
     active: local
+  cache:
+    # redis 캐시 매니저를 명시 (redisson JCache와의 자동설정 충돌 방지).
+    # 캐시 전/후 비교 시 none 으로 오버라이드해서 띄운다.
+    type: redis
 
 server:
   port: 8080
@@ -19,3 +23,6 @@ reservation:
   lock:
     # none | pessimistic | distributed  (배경·비교: docs/troubleshooting.md)
     strategy: pessimistic
+  hold:
+    ttl: PT10M        # 홀딩 유지 시간 (이 안에 확정 안 하면 Redis가 자동 삭제)
+    sweep-ms: 60000   # 백스톱 스윕 주기 (keyspace 만료 이벤트를 놓쳤을 때 정합성 보정)

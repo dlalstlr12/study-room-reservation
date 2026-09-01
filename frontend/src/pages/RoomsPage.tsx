@@ -100,7 +100,7 @@ export function RoomsPage() {
 
       {data && (
         <div className="grid grid--cards">
-          {data.length === 0 && <EmptyState>표시할 룸이 없습니다.</EmptyState>}
+          {data.length === 0 && <EmptyState>등록된 룸이 없습니다.</EmptyState>}
           {data.map((room) =>
             editingId === room.id ? (
               <Card key={room.id} title={`수정 · ${room.name}`}>

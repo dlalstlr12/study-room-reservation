@@ -1,256 +1,76 @@
-# Design System Master File
+# Design System — Study Room Reservation
 
-> **LOGIC:** When building a specific page, first check `design-system/pages/[page-name].md`.
-> If that file exists, its rules **override** this Master file.
-> If not, strictly follow the rules below.
-
----
-
-**Project:** Study Room Reservation
-**Generated:** 2026-08-31 18:06:42
-**Category:** Developer Tool / IDE
-**Design Dials:** Variance 3/10 (Centered / Minimal) | Motion 2/10 (Subtle) | Density 8/10 (Dense / Dashboard)
+> 실제 적용값의 기준은 `frontend/src/styles/global.css`의 `:root` 토큰. 이 파일은 그 근거와 의도를 설명한다.
+> 처음 `ui-ux-pro-max`로 다크 콘솔 룩을 잡았다가, `frontend-design` 스킬로 아래 방향으로 다시 잡았다.
 
 ---
 
-## Global Rules
+## 콘셉트: "예약 시트 / 시설 안내판"
 
-### Color Palette
+인터페이스를 **게시된 방 예약 스케줄**처럼 다룬다. 종이 흉내(스큐어모피즘)가 아니라 시간표의 *구조* —
+밝은 페이퍼 바탕, 기능적 괘선, 그룹 스터디룸 문 옆 상태 패널에서 따온 3색.
+예약이란 결국 *방 × 시간* 격자 위의 사각형이라는 점이 디자인의 출발점.
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#1E293B` | `--color-primary` |
-| On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#334155` | `--color-secondary` |
-| On Secondary | `#FFFFFF` | `--color-on-secondary` |
-| Accent/CTA | `#22C55E` | `--color-accent` |
-| On Accent/CTA | `#0F172A` | `--color-on-accent` |
-| Background | `#0F172A` | `--color-background` |
-| Foreground | `#F8FAFC` | `--color-foreground` |
-| Card | `#1B2336` | `--color-card` |
-| Card Foreground | `#F8FAFC` | `--color-card-foreground` |
-| Muted | `#272F42` | `--color-muted` |
-| Muted Foreground | `#94A3B8` | `--color-muted-foreground` |
-| Border | `#475569` | `--color-border` |
-| Destructive | `#EF4444` | `--color-destructive` |
-| On Destructive | `#000000` | `--color-on-destructive` |
-| Ring | `#FFFFFF` | `--color-ring` |
-
-**Color Notes:** Code dark + run green
-
-### Typography
-
-- **Heading Font:** JetBrains Mono
-- **Body Font:** IBM Plex Sans
-- **Mood:** code, developer, technical, precise, functional, hacker
-- **Google Fonts:** [JetBrains Mono + IBM Plex Sans](https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap)
-
-**CSS Import:**
-```css
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-```
-
-### Spacing Variables
-
-*Density: 8/10 — Dense / Dashboard*
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--space-xs` | `2px` / `0.125rem` | Tight gaps |
-| `--space-sm` | `4px` / `0.25rem` | Icon gaps, inline spacing |
-| `--space-md` | `8px` / `0.5rem` | Standard padding |
-| `--space-lg` | `12px` / `0.75rem` | Section padding |
-| `--space-xl` | `16px` / `1rem` | Large gaps |
-| `--space-2xl` | `24px` / `1.5rem` | Section margins |
-| `--space-3xl` | `32px` / `2rem` | Hero padding |
-
-### Shadow Depths
-
-| Level | Value | Usage |
-|-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
-| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
+**시그니처**: 예약 목록에서 각 예약의 시작–종료를 `08:00–24:00` 하루 트랙 위에 비율만큼 앰버 막대로 표시(`.timebar`).
+밋밋한 테이블이 하루 스케줄판이 된다. 이 도메인의 진짜 산출물이고 일반 대시보드엔 없는 요소.
+보수적으로 — 대담함은 여기 한 곳에만. 나머지(카드·배지·타이포)는 조용하게.
 
 ---
 
-## Component Specs
+## 색
 
-### Buttons
+| 역할 | 값 | 유래 |
+| --- | --- | --- |
+| `--ground` | `#f4f5f3` | 예약 시트 바탕(차가운 페이퍼 그레이) |
+| `--panel` | `#ffffff` | 카드/사이드바 |
+| `--ink` | `#16181c` | 본문 |
+| `--ink-soft` | `#5b6067` | 보조 텍스트 |
+| `--rule` / `--rule-strong` | `#d9dbd6` / `#c3c7c0` | 괘선·구분선 |
+| `--sign` | `#1f4e5f` | 에나멜 안내판 블루 → primary / CTA / 활성 네비 / 링크 |
+| `--free` | `#2e6e4e` | 상태 "예약 가능" · 성공 · 헬스 정상 |
+| `--reserved` | `#b26a00` | 상태 "예약됨/홀딩" · 타임바 · 경고 |
+| `--stop` | `#b23b2e` | 상태 "사용중" · 위험 · 헬스 응답없음 |
 
-```css
-/* Primary Button */
-.btn-primary {
-  background: #22C55E;
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Secondary Button */
-.btn-secondary {
-  background: transparent;
-  color: #1E293B;
-  border: 2px solid #1E293B;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-```
-
-### Cards
-
-```css
-.card {
-  background: #0F172A;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
-```
-
-### Inputs
-
-```css
-.input {
-  padding: 12px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 200ms ease;
-}
-
-.input:focus {
-  border-color: #1E293B;
-  outline: none;
-  box-shadow: 0 0 0 3px #1E293B20;
-}
-```
-
-### Modals
-
-```css
-.modal-overlay {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-xl);
-  max-width: 500px;
-  width: 90%;
-}
-```
+3색(sign/free/reserved/stop)은 장식이 아니라 방 상태 패널의 램프 색이다. 바탕은 중립 유지.
+다크 모드 없음(예약 시트는 밝다 — 그리고 "다크+단일 악센트"는 frontend-design이 경고하는 AI 기본값).
 
 ---
 
-## Style Guidelines
+## 타이포
 
-**Style:** Minimalism & Swiss Style
+| 역할 | 폰트 | 쓰는 곳 |
+| --- | --- | --- |
+| Display | **Barlow Semi Condensed** (600/700) | h1–h3, 카드 타이틀, 배지, `.stat` 숫자, 사이드바 브랜드 |
+| Body | **Public Sans** (400–700) | 본문, 라벨, 버튼, 인풋 |
+| Mono | **IBM Plex Mono** (400/500) | 시간·날짜·방번호·이메일·데모 계정 — 컬럼 정렬이 실제로 필요한 곳만 |
 
-**Keywords:** Clean, simple, spacious, functional, white space, high contrast, geometric, sans-serif, grid-based, essential
-
-**Best For:** Enterprise apps, dashboards, documentation sites, SaaS platforms, professional tools
-
-**Key Effects:** Subtle hover (200-250ms), smooth transitions, sharp shadows if any, clear type hierarchy, fast loading
-
-### Page Pattern
-
-**Pattern Name:** FAQ/Documentation Landing
-
-- **Conversion Strategy:** Reduce support tickets. Track search analytics. Show related articles. Contact escalation path.
-- **CTA Placement:** Search bar prominent + Contact CTA for unresolved questions
-- **Section Order:** Hero with search bar > Popular categories > FAQ accordion > Contact/support CTA
+Barlow Semi Condensed는 교통/사인 레터링 계열 → 시간표 컬럼에 이름을 욱여넣는 조판 논리와 맞음.
+Public Sans는 USWDS 시빅 페이스 → 시설 안내 톤. 한글은 세 폰트 모두 글리프가 없어 Pretendard→시스템으로 폴백(정상).
 
 ---
 
-## Motion
+## 컴포넌트 규칙
 
-**Scroll Reveal** (Subtle) — Trigger: scroll (viewport enter) | Duration: 300-400ms | Easing: `power1.out`
-
-```js
-gsap.from(el, { opacity: 0, y: 12, duration: 0.35, ease: 'power1.out', scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' } });
-```
-
-**Framework notes:** Requires the ScrollTrigger plugin registered once via gsap.registerPlugin(ScrollTrigger); Use matchMedia('(prefers-reduced-motion: reduce)') to skip non-essential motion and render the final state immediately
-
-- ✅ Keep the y offset small (8-16px) so it reads as a fade, not a slide
-- ❌ Don't reveal below-the-fold content needed for SEO/crawlers as invisible-by-default without a no-JS fallback
-- ⚡ toggleActions 'play none none reverse' avoids re-triggering on every scroll direction change
+- **카드** = 예약 시트의 한 섹션: 위쪽 `2px solid var(--ink)` 룰 + 나머지 얇은 테두리, 모서리 3px.
+- **상태 배지** = 문패 램프: `색 블록(::before) + 대문자 코드`. enum 값(`AVAILABLE` 등) 노출, 한글은 `title`.
+  톤 클래스: `badge--free / --reserved / --stop / --done`. 권한 스탬프는 `badge--admin`(sign 채움, 블록 없음).
+- **버튼**: primary = `--sign` 채움 / secondary = 아웃라인 / danger = `--stop` 아웃라인(호버 시 채움) / ghost = 텍스트만. mono 아님(Public Sans 600).
+- **사이드바** = 건물 안내: 활성 항목 `inset 3px 0 0 var(--sign)` 마커.
+- **타임바**(`.timebar` + `.timebar__fill`): `display:block`, `max-width:220px`, 12.5% 간격 괘선 배경, fill은 `left/width` %.
+- 그림자 없음(토스트만 예외). 모션 없음(`prefers-reduced-motion` 존중). 포커스 링 `--sign` 2px.
 
 ---
 
-## Anti-Patterns (Do NOT Use)
+## 카피
 
-- ❌ Light mode default
-- ❌ Slow performance
-
-### Additional Forbidden Patterns
-
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
+- 시스템 상태는 안내판 톤: "운영 중" / "응답 없음" / "확인 중".
+- 버튼과 결과 토스트의 동사를 맞춘다: "예약하기" → "예약했습니다.", "취소" → "예약을 취소했습니다.".
+- 빈 상태는 분위기가 아니라 방향: "아직 예약한 룸이 없습니다. 룸 목록에서 시간을 고르세요."
+- 명사는 앱 전체에서 "룸"으로 통일(코드 enum 배지만 영문).
 
 ---
 
-## Pre-Delivery Checklist
+## 다음 단계 프론트 작업 시
 
-Before delivering any UI code, verify:
-
-- [ ] No emojis used as icons (use SVG instead)
-- [ ] All icons from consistent icon set (Heroicons/Lucide)
-- [ ] `cursor-pointer` on all clickable elements
-- [ ] Hover states with smooth transitions (150-300ms)
-- [ ] Light mode: text contrast 4.5:1 minimum
-- [ ] Focus states visible for keyboard navigation
-- [ ] `prefers-reduced-motion` respected
-- [ ] Responsive: 375px, 768px, 1024px, 1440px
-- [ ] No content hidden behind fixed navbars
-- [ ] No horizontal scroll on mobile
-
----
-
-## Implementation Notes (as shipped)
-
-이 파일은 생성된 출발점이고, 실제 적용값은 `frontend/src/styles/global.css`의 `:root` 토큰이 기준.
-생성 결과에서 의도적으로 조정한 부분:
-
-- **팔레트**: slate 계열을 약간 더 어둡고 중립적으로 조정 (`--bg #0d1017`, `--surface #14181f`).
-  악센트는 run-green `#3fb950` (호버 `#2ea043`, 버튼 텍스트 `#0b0e13`).
-- **모서리**: `--radius 6px`, `--radius-sm 3px`. 배지는 `2px` (Swiss).
-- **그림자**: 다크에서는 사용 안 함 — border + surface 단계로 elevation 표현. 토스트만 예외.
-- **타이포**: 제목·라벨·버튼·표 헤더·숫자 = JetBrains Mono / 본문·설명 = IBM Plex Sans.
-  한글은 mono 폰트에 글리프가 없어 sans로 폴백됨 — 그래서 한글이 들어가는 요소
-  (버튼, 필드 라벨, 카드 타이틀, 표 헤더)에는 `text-transform: uppercase`와 넓은 letter-spacing을 빼고
-  wide-tracking·uppercase는 영문/코드 요소(`STEP 1 · CORE`, 상태 배지)에만 적용.
-- **상태 배지**: 한글 라벨 대신 원본 enum 코드(`AVAILABLE`, `RESERVED` …)를 노출하고
-  한글 설명은 `title` 속성으로 (`components/StatusBadge.tsx`).
-- **로고**: 이모지 → 인라인 SVG 마크 (`components/AppLayout.tsx`).
-- **밀도**: content/card 패딩과 gap을 dashboard 수준으로 축소.
-- 스크롤바 다크 스타일, `::selection`, `prefers-reduced-motion` 블록 추가.
-
-GSAP 스크롤 모션은 도입하지 않음 (Motion 2/10, 데모 앱이라 불필요).
+이 파일 + `global.css` 토큰을 따를 것. 새 화면도 기존 클래스(`.card`, `.badge`, `.table`, `.btn`…) 재사용하면 스타일 자동 적용.
+GSAP·모션 라이브러리 도입 안 함. 시그니처(타임바)는 예약 화면 전용 — 대시보드를 또 시간표로 만들지 말 것.

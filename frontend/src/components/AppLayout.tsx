@@ -70,7 +70,7 @@ export function AppLayout() {
         <div className="sidebar__foot">
           <span className={`health health--${health}`}>
             <span className="health__dot" />
-            {health === 'up' ? '백엔드 정상' : health === 'down' ? '백엔드 응답 없음' : '확인 중…'}
+            {health === 'up' ? '운영 중' : health === 'down' ? '응답 없음' : '확인 중'}
           </span>
         </div>
       </aside>
@@ -81,7 +81,7 @@ export function AppLayout() {
             {status === 'authenticated' && user ? (
               <>
                 <span className="topbar__email">{user.email}</span>
-                <span className={`badge badge--${user.role === 'ADMIN' ? 'purple' : 'gray'}`}>
+                <span className={`badge ${user.role === 'ADMIN' ? 'badge--admin' : 'badge--done'}`}>
                   {user.role}
                 </span>
                 <Button variant="ghost" onClick={handleLogout}>

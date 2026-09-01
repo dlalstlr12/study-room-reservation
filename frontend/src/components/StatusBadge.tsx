@@ -12,13 +12,16 @@ const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   COMPLETED: '이용 완료',
 }
 
-const TONE: Record<RoomStatus | ReservationStatus, 'green' | 'gray' | 'red'> = {
-  AVAILABLE: 'green',
-  RESERVED: 'green',
-  HOLDING: 'gray',
-  COMPLETED: 'gray',
-  OCCUPIED: 'red',
-  CANCELLED: 'red',
+/** tone maps to a door-panel lamp colour */
+type Tone = 'free' | 'reserved' | 'stop' | 'done'
+
+const TONE: Record<RoomStatus | ReservationStatus, Tone> = {
+  AVAILABLE: 'free',
+  RESERVED: 'reserved',
+  HOLDING: 'reserved',
+  OCCUPIED: 'stop',
+  COMPLETED: 'done',
+  CANCELLED: 'done',
 }
 
 export function RoomStatusBadge({ status }: { status: RoomStatus }) {

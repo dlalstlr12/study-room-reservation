@@ -4,12 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
+import com.studyroom.common.lock.LockStrategy;
+import com.studyroom.common.lock.NoOpDistributedLock;
+import com.studyroom.common.lock.ReservationLockProperties;
 import com.studyroom.member.entity.Member;
 import com.studyroom.member.service.MemberService;
 import com.studyroom.reservation.dto.ReservationCreateRequest;
@@ -23,10 +27,11 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class ReservationServiceTest {
@@ -37,7 +42,9 @@ class ReservationServiceTest {
 	private MemberService memberService;
 	@Mock
 	private RoomService roomService;
-	@InjectMocks
+	@Mock
+	private TransactionTemplate txTemplate;
+
 	private ReservationService reservationService;
 
 	private Member member;
@@ -45,6 +52,12 @@ class ReservationServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		reservationService = new ReservationService(reservationRepository, memberService, roomService,
+				txTemplate, new NoOpDistributedLock(), new ReservationLockProperties(LockStrategy.NONE));
+		// txTemplate.execute 는 콜백을 그대로 실행한다 (트랜잭션 경계는 통합 테스트에서 검증).
+		lenient().when(txTemplate.execute(any())).thenAnswer(
+				inv -> inv.getArgument(0, TransactionCallback.class).doInTransaction(null));
+
 		member = Member.create("user@test.com", "ENCODED", "테스터");
 		ReflectionTestUtils.setField(member, "id", 1L);
 		room = Room.create("스터디룸", 4, null);

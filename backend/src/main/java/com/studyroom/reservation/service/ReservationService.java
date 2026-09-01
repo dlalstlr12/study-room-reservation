@@ -2,6 +2,8 @@ package com.studyroom.reservation.service;
 
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
+import com.studyroom.common.lock.DistributedLock;
+import com.studyroom.common.lock.ReservationLockProperties;
 import com.studyroom.member.entity.Member;
 import com.studyroom.member.service.MemberService;
 import com.studyroom.reservation.dto.ReservationCreateRequest;
@@ -16,9 +18,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional(readOnly = true)
 public class ReservationService {
 
 	/** 1회 예약 최대 이용 시간. */
@@ -27,23 +29,36 @@ public class ReservationService {
 	private final ReservationRepository reservationRepository;
 	private final MemberService memberService;
 	private final RoomService roomService;
+	private final TransactionTemplate txTemplate;
+	private final DistributedLock distributedLock;
+	private final ReservationLockProperties lockProperties;
 
-	public ReservationService(ReservationRepository reservationRepository,
-			MemberService memberService, RoomService roomService) {
+	public ReservationService(ReservationRepository reservationRepository, MemberService memberService,
+			RoomService roomService, TransactionTemplate txTemplate, DistributedLock distributedLock,
+			ReservationLockProperties lockProperties) {
 		this.reservationRepository = reservationRepository;
 		this.memberService = memberService;
 		this.roomService = roomService;
+		this.txTemplate = txTemplate;
+		this.distributedLock = distributedLock;
+		this.lockProperties = lockProperties;
 	}
 
 	/**
-	 * 예약 생성. <b>동시성 미처리</b> — 겹침 검사({@code existsOverlap})와 저장 사이에 락이 없어
-	 * 두 요청이 동시에 검사를 통과하면 겹치는 예약이 함께 생성될 수 있다.
-	 * 로드맵 2단계에서 "버그 재현 → 비관적 락 → Redisson 분산 락" 순으로 해결한다. 의도적 취약.
+	 * 예약 생성. 순서를 <b>락 → 트랜잭션 → 겹침 검사 → 저장</b>으로 명시한다.
+	 * 검증은 트랜잭션 밖에서, 겹침 검사와 저장은 한 트랜잭션 안에서 이뤄진다.
+	 * 동시성 제어 방식은 {@code reservation.lock.strategy}로 전환한다
+	 * (자세한 배경: {@code docs/troubleshooting.md}).
 	 */
-	@Transactional
 	public ReservationResponse create(Long memberId, ReservationCreateRequest request) {
 		validateTimeRange(request.startAt(), request.endAt());
 
+		String lockKey = "lock:reservation:room:" + request.roomId();
+		return distributedLock.runWithLock(lockKey,
+				() -> txTemplate.execute(status -> doCreate(memberId, request)));
+	}
+
+	private ReservationResponse doCreate(Long memberId, ReservationCreateRequest request) {
 		Member member = memberService.getById(memberId);
 		Room room = roomService.getEntity(request.roomId());
 
@@ -56,6 +71,7 @@ public class ReservationService {
 		return ReservationResponse.from(saved);
 	}
 
+	@Transactional(readOnly = true)
 	public List<ReservationResponse> getMyReservations(Long memberId, ReservationStatus status) {
 		List<Reservation> reservations = (status == null)
 				? reservationRepository.findByMemberIdOrderByStartAtDesc(memberId)
@@ -63,6 +79,7 @@ public class ReservationService {
 		return reservations.stream().map(ReservationResponse::from).toList();
 	}
 
+	@Transactional(readOnly = true)
 	public ReservationResponse getReservation(Long reservationId, Long requesterId, boolean isAdmin) {
 		Reservation reservation = reservationRepository.findDetailById(reservationId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_NOT_FOUND));

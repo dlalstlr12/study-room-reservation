@@ -11,6 +11,7 @@ const NAV = [
   { to: '/', label: '대시보드', end: true },
   { to: '/rooms', label: '룸', end: false },
   { to: '/reservations', label: '내 예약', end: false },
+  { to: '/lottery', label: '이벤트 추첨', end: false },
 ]
 
 export function AppLayout() {
@@ -52,7 +53,7 @@ export function AppLayout() {
           </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">STEP 4 · REALTIME</span>
+            <span className="sidebar__sub">STEP 5 · LOTTERY</span>
           </div>
         </div>
         <nav className="sidebar__nav">

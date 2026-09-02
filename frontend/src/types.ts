@@ -61,6 +61,40 @@ export interface RoomChangeEvent {
   at: string
 }
 
+export type LotteryEventStatus = 'SCHEDULED' | 'DRAWN' | 'CANCELLED'
+export type MyLotteryResult = 'NONE' | 'LOST' | 'WON'
+
+export interface LotteryEvent {
+  id: number
+  title: string
+  prize: string
+  targetAt: string
+  drawAt: string
+  winnerCount: number
+  status: LotteryEventStatus
+  drawnAt: string | null
+  entryCount: number
+  winners: string[]
+  myResult: MyLotteryResult
+}
+
+export interface LotteryEntry {
+  eventId: number
+  eventTitle: string
+  prize: string
+  winner: boolean
+  drawnAt: string | null
+}
+
+/** WebSocket `/topic/lottery` 로 오는 추첨 결과. */
+export interface LotteryResultEvent {
+  eventId: number
+  title: string
+  prize: string
+  winners: string[]
+  drawnAt: string
+}
+
 export interface TokenResponse {
   accessToken: string
   refreshToken: string

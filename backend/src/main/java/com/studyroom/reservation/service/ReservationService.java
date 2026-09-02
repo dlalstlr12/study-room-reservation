@@ -1,11 +1,11 @@
 package com.studyroom.reservation.service;
 
-import com.studyroom.common.cache.RoomScheduleCache;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.DistributedLock;
 import com.studyroom.common.lock.LockStrategy;
 import com.studyroom.common.lock.ReservationLockProperties;
+import com.studyroom.common.realtime.RoomChangeNotifier;
 import com.studyroom.member.entity.Member;
 import com.studyroom.member.service.MemberService;
 import com.studyroom.reservation.SlotValidator;
@@ -32,12 +32,12 @@ public class ReservationService {
 	private final TransactionTemplate txTemplate;
 	private final DistributedLock distributedLock;
 	private final ReservationLockProperties lockProperties;
-	private final RoomScheduleCache roomScheduleCache;
+	private final RoomChangeNotifier roomChangeNotifier;
 
 	public ReservationService(ReservationRepository reservationRepository, MemberService memberService,
 			RoomService roomService, RoomRepository roomRepository, TransactionTemplate txTemplate,
 			DistributedLock distributedLock, ReservationLockProperties lockProperties,
-			RoomScheduleCache roomScheduleCache) {
+			RoomChangeNotifier roomChangeNotifier) {
 		this.reservationRepository = reservationRepository;
 		this.memberService = memberService;
 		this.roomService = roomService;
@@ -45,7 +45,7 @@ public class ReservationService {
 		this.txTemplate = txTemplate;
 		this.distributedLock = distributedLock;
 		this.lockProperties = lockProperties;
-		this.roomScheduleCache = roomScheduleCache;
+		this.roomChangeNotifier = roomChangeNotifier;
 	}
 
 	/**
@@ -60,7 +60,7 @@ public class ReservationService {
 		String lockKey = "lock:reservation:room:" + request.roomId();
 		ReservationResponse created = distributedLock.runWithLock(lockKey,
 				() -> txTemplate.execute(status -> doCreate(memberId, request)));
-		roomScheduleCache.evictAll();
+		roomChangeNotifier.roomChanged(request.roomId(), memberId);
 		return created;
 	}
 
@@ -109,7 +109,7 @@ public class ReservationService {
 			throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
 		}
 		reservation.cancel();
-		roomScheduleCache.evictAll();
+		roomChangeNotifier.roomChanged(reservation.getRoom().getId(), requesterId);
 		return ReservationResponse.from(reservation);
 	}
 }

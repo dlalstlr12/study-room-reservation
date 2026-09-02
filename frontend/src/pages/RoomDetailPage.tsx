@@ -22,7 +22,7 @@ import {
 
 const DURATIONS = Array.from({ length: (MAX_SLOT_HOURS * 60) / SLOT_MINUTES }, (_, i) => {
   const mins = (i + 1) * SLOT_MINUTES
-  return { mins, label: mins % 60 === 0 ? `${mins / 60}시간` : `${mins}분` }
+  return { mins, label: `${mins}분` }
 })
 
 function todayStr(): string {

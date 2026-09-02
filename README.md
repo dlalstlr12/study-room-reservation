@@ -141,6 +141,22 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 프론트: 룸 상세(`/rooms/:id`)에서 자동 구독, 헤더에 연결 상태 표시. 두 창을 띄워 한쪽에서
 홀딩하면 다른 쪽 타임라인이 즉시 갱신되는 것을 볼 수 있다.
 
+## 이벤트 추첨 (로드맵 5단계)
+
+**현재 이용 중인 회원**(추첨 시점 `RESERVED` 이면서 그 순간이 이용 시간대) 또는 **전체 회원** 중에서
+ADMIN이 추첨한다. 추첨은 **재현 가능**하다 — `SecureRandom` 시드를 `lottery_events.seed` 에 기록하고,
+후보를 memberId로 정렬한 뒤 `new Random(seed)` 로 섞는다. 같은 (후보, seed, 인원)이면 언제든 같은
+당첨자가 나온다.
+
+- 동시성: `draw()` 는 Redisson 락 + `SCHEDULED → DRAWN` 가드 → 중복 클릭·다중 인스턴스에도 1회
+- 발표: `@TransactionalEventListener(AFTER_COMMIT)` → `/topic/lottery/{id}` WebSocket 브로드캐스트
+  (롤백 시 오발표 방지, 6단계에서 Kafka 발행 훅이 됨)
+- 공정성 분포: 후보 10·당첨 1·10,000회 → 후보별 당첨 950~1,038 (기대 1,000)
+- API: `POST /api/lottery/events`(ADMIN), `GET /api/lottery/events`,
+  `POST /api/lottery/events/{id}/draw`(ADMIN), `DELETE /api/lottery/events/{id}`(ADMIN)
+- 재현/검증: `backend/src/test/java/com/studyroom/lottery/`
+- 프론트: `/lottery` — 이벤트 목록·내 결과, "당첨자 확인하기" 토글, ADMIN 삭제, 추첨 결과 실시간 발표
+
 ## 다음 단계
 
-로드맵 5단계(이벤트 추첨): 스케줄러 기반 추첨 로직 + 당첨자 알림 발행.
+로드맵 6단계(메시징/알림): Kafka 또는 RabbitMQ 도입, 알림 워커, 재시도 + DLQ.

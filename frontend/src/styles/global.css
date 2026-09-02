@@ -998,6 +998,114 @@ a:hover {
   gap: 0.4rem;
 }
 
+/* ---------- Lottery cards ---------- */
+
+.lottery-card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--r);
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.lottery-card--won {
+  border-left-color: var(--free);
+  background: var(--free-soft);
+}
+
+.lottery-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.lottery-card__head h3 {
+  font-size: 1rem;
+}
+
+.lottery-card__prize {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.lottery-card__meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.lottery-card__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lottery-card__meta dt {
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+.lottery-card__meta dd {
+  margin: 0;
+}
+
+.lottery-card__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.lottery-card__winners {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lottery-card__winners-label {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  margin-right: 0.15rem;
+}
+
+.lottery-card__winner {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--reserved-soft);
+  border: 1px solid rgba(178, 106, 0, 0.32);
+  border-radius: 2px;
+}
+
+.lottery-card__myresult {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.lottery-card__myresult--won {
+  color: var(--free);
+}
+
+.lottery-card__myresult--lost {
+  color: var(--ink-soft);
+}
+
+.lottery-card__foot {
+  margin-top: auto;
+  padding-top: 0.4rem;
+}
+
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {

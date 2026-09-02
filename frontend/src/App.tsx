@@ -3,6 +3,7 @@ import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { LotteryPage } from './pages/LotteryPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { RoomDetailPage } from './pages/RoomDetailPage'
@@ -21,6 +22,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ReservationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="lottery"
+          element={
+            <ProtectedRoute>
+              <LotteryPage />
             </ProtectedRoute>
           }
         />

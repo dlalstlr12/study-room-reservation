@@ -8,10 +8,10 @@ import { Card } from '../components/ui'
 import { formatDateTime } from '../utils/format'
 
 const FEATURES = [
-  { to: '/rooms', label: '실시간 좌석 현황', desc: 'WebSocket /topic/rooms/{id} — 다른 사용자의 홀딩·예약이 새로고침 없이 반영' },
-  { to: '/rooms', label: '룸 예약 현황', desc: 'GET /api/rooms/{id}/schedule — 예약·홀딩 타임라인 (Redis 캐싱)' },
-  { to: '/rooms', label: '좌석 홀딩', desc: 'POST /api/reservations/holds — Redis TTL 10분, 30분 슬롯' },
-  { to: '/reservations', label: '홀딩 확정 / 내 예약', desc: 'POST /holds/.../confirm, GET /holds/me — TTL 만료 시 자동 해제' },
+  { to: '/lottery', label: '이벤트 추첨', desc: '기준 시각 이용자 스냅샷 → 시드 기반 재현 가능한 추첨, 스케줄러 자동 실행' },
+  { to: '/lottery', label: '당첨 실시간 발표', desc: 'WebSocket /topic/lottery — 추첨 커밋 후 새로고침 없이 결과' },
+  { to: '/rooms', label: '실시간 좌석 현황 · 홀딩', desc: 'WebSocket /topic/rooms/{id}, Redis TTL 홀딩, 룸 현황 캐싱' },
+  { to: '/reservations', label: '내 홀딩 / 예약', desc: 'GET /holds/me, /reservations/me' },
 ]
 
 export function DashboardPage() {
@@ -43,7 +43,7 @@ export function DashboardPage() {
       <div className="page__head">
         <h1>대시보드</h1>
         <p className="page__lead">
-          로드맵 4단계 — WebSocket으로 좌석 현황을 실시간 브로드캐스트. 아래 화면들에서 직접 확인할 수 있습니다.
+          로드맵 5단계 — 이용 중이던 회원 대상 이벤트 추첨. 아래 화면들에서 직접 확인할 수 있습니다.
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card title="4단계 기능">
+      <Card title="5단계 기능">
         <ul className="feature-list">
           {FEATURES.map((f) => (
             <li key={f.label}>

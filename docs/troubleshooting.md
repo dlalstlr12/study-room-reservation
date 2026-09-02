@@ -285,22 +285,23 @@ return ordered.subList(0, min(winnerCount, size));
 - 후보를 **정렬**해 기준 순서를 고정 → `(후보 집합, seed, winnerCount)` 만 같으면 언제 어디서
   돌려도 같은 당첨자.
 - 감사: 저장된 seed + 응모자 목록으로 재계산 → persisted 당첨자와 일치 (`LotteryDrawTest`).
+- 추첨 대상은 두 가지: **CURRENT_USERS**(추첨 시점 `RESERVED` 이면서 그 순간이 이용 시간대에
+  드는 회원) 또는 **ALL_USERS**(전체 회원). ADMIN이 "지금 추첨"으로 실행한다.
 
-### 문제 2 — 스케줄러 중복 실행
+### 문제 2 — 중복 추첨
 
-`@Scheduled` 는 앱 인스턴스마다 돈다. 다중 인스턴스거나 실행이 겹치면 같은 이벤트를 두 번 추첨해
-응모자·당첨자가 2배로 저장된다.
+추첨 버튼 연타, 앱 다중 인스턴스 등으로 같은 이벤트가 두 번 뽑히면 응모자·당첨자가 2배로 저장된다.
 
 **해결 — Redisson 락 + 상태 가드**: `draw()` 는 항상 `lock:lottery:event:{id}` 안에서
-`SCHEDULED → DRAWN` 전이를 확인한다. 락에 늦게 들어온 실행은 이미 `DRAWN` 이라 조용히 반환(스케줄러)
-하거나 `LOTTERY_ALREADY_DRAWN`(수동). `LotteryConcurrencyTest`: 8스레드 동시 `draw()` → 성공 1,
+`SCHEDULED → DRAWN` 전이를 확인한다. 락에 늦게 들어온 실행은 이미 `DRAWN` 이라
+`LOTTERY_ALREADY_DRAWN`(409). `LotteryConcurrencyTest`: 8스레드 동시 `draw()` → 성공 1,
 응모자 정확히 1세트.
 
 ### 문제 3 — 발표 타이밍
 
 당첨 발표를 추첨 트랜잭션 안에서 바로 WebSocket으로 쏘면, 트랜잭션이 롤백돼도 오발표가 나간다.
 
-**해결 — `@TransactionalEventListener(AFTER_COMMIT)`**: `draw()` 는 트랜잭션 안에서
+**해결 — `@TransactionalEventListener(AFTER_COMMIT)`**: `doDraw()` 는 트랜잭션 안에서
 `LotteryDrawnEvent` 를 발행만 하고, `LotteryAnnouncementListener` 가 **커밋된 뒤에만**
 `/topic/lottery/{id}` 로 결과를 발표한다. (6단계에서 이 자리에 Kafka 발행 리스너가 붙는다.)
 

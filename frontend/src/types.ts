@@ -61,15 +61,15 @@ export interface RoomChangeEvent {
   at: string
 }
 
-export type LotteryEventStatus = 'SCHEDULED' | 'DRAWN' | 'CANCELLED'
+export type LotteryEventStatus = 'SCHEDULED' | 'DRAWN'
+export type LotteryAudience = 'CURRENT_USERS' | 'ALL_USERS'
 export type MyLotteryResult = 'NONE' | 'LOST' | 'WON'
 
 export interface LotteryEvent {
   id: number
   title: string
   prize: string
-  targetAt: string
-  drawAt: string
+  audience: LotteryAudience
   winnerCount: number
   status: LotteryEventStatus
   drawnAt: string | null

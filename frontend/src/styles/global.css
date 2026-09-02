@@ -1055,13 +1055,20 @@ a:hover {
   margin: 0;
 }
 
+.lottery-card__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
 .lottery-card__winners {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--rule);
 }
 
 .lottery-card__winners-label {

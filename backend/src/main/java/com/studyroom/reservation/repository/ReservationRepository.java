@@ -54,6 +54,17 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
 	long countByRoomIdAndStatus(Long roomId, ReservationStatus status);
 
+	/**
+	 * {@code at} 시각에 이용 중인(RESERVED, {@code startAt <= at < endAt}) 예약의 회원 id.
+	 * 이벤트 추첨(로드맵 5단계)의 응모 대상 스냅샷.
+	 */
+	@Query("""
+			select distinct r.member.id from Reservation r
+			where r.status = com.studyroom.reservation.entity.ReservationStatus.RESERVED
+			  and r.startAt <= :at and r.endAt > :at
+			""")
+	List<Long> findActiveMemberIdsAt(@Param("at") LocalDateTime at);
+
 	@EntityGraph(attributePaths = {"room", "member"})
 	@Query("select r from Reservation r where r.id = :id")
 	Optional<Reservation> findDetailById(@Param("id") Long id);

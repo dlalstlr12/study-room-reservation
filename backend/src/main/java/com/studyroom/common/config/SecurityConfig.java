@@ -56,6 +56,8 @@ public class SecurityConfig {
 								"/api/auth/signup", "/api/auth/login", "/api/auth/reissue").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/rooms", "/api/rooms/**").permitAll()
 						.requestMatchers("/api/rooms", "/api/rooms/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.POST,
+								"/api/lottery/events", "/api/lottery/events/*/draw").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();

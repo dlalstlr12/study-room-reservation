@@ -7,6 +7,8 @@ public interface LotteryEntryRepository extends JpaRepository<LotteryEntry, Long
 
 	List<LotteryEntry> findByEventId(Long eventId);
 
+	List<LotteryEntry> findByEventIdIn(java.util.Collection<Long> eventIds);
+
 	List<LotteryEntry> findByEventIdAndWinnerTrue(Long eventId);
 
 	List<LotteryEntry> findByMemberIdOrderByEventIdDesc(Long memberId);

@@ -53,6 +53,14 @@ export interface RoomSchedule {
   entries: RoomScheduleEntry[]
 }
 
+/** WebSocket `/topic/rooms/{id}` 로 오는 실시간 알림. "이 룸이 바뀌었다"만 알린다. */
+export interface RoomChangeEvent {
+  roomId: number
+  /** 변경을 일으킨 회원. 홀딩 만료·백스톱은 null */
+  actorMemberId: number | null
+  at: string
+}
+
 export interface TokenResponse {
   accessToken: string
   refreshToken: string

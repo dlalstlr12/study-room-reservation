@@ -73,16 +73,12 @@ public class LotteryService {
 	 *               false(스케줄러) 면 조용히 건너뛴다
 	 */
 	public LotteryEventResponse draw(Long eventId, boolean manual) {
-		Long drawnEventId = eventLock.runWithLock("lock:lottery:event:" + eventId, () ->
+		eventLock.runWithLock("lock:lottery:event:" + eventId, () ->
 				txTemplate.execute(status -> doDraw(eventId, manual)));
-
-		if (drawnEventId != null) {
-			eventPublisher.publishEvent(new LotteryDrawnEvent(drawnEventId));
-		}
 		return getEvent(eventId, null);
 	}
 
-	private Long doDraw(Long eventId, boolean manual) {
+	private Void doDraw(Long eventId, boolean manual) {
 		LotteryEvent event = eventRepository.findById(eventId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.LOTTERY_EVENT_NOT_FOUND));
 		if (!event.isDrawable()) {
@@ -91,6 +87,7 @@ public class LotteryService {
 			}
 			return null; // 스케줄러 중복 — 이미 다른 실행이 뽑음
 		}
+		// (아래에서 markDrawn 후 이 트랜잭션 안에서 이벤트 발행 → 커밋되면 AFTER_COMMIT 리스너가 발표)
 
 		List<Long> candidates = reservationRepository.findActiveMemberIdsAt(event.getTargetAt());
 		long seed = SEED_SOURCE.nextLong();
@@ -107,7 +104,8 @@ public class LotteryService {
 
 		log.info("[추첨] event={} seed={} 후보={}명{} 당첨={}", eventId, seed, candidates.size(),
 				candidates, winners);
-		return eventId;
+		eventPublisher.publishEvent(new LotteryDrawnEvent(eventId));
+		return null;
 	}
 
 	@Transactional(readOnly = true)

@@ -126,6 +126,21 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 - 재현/검증: `backend/src/test/java/com/studyroom/reservation/hold/`, `.../schedule/`, `.../common/cache/`
 - 부하테스트: `backend/load-test/holding-rush.js`, `backend/load-test/room-read.js`
 
+## 실시간 (로드맵 4단계)
+
+룸 현황을 바꾸는 이벤트(홀딩 생성/확정/해제, 예약 생성/취소, 홀딩 TTL 만료)를 그 룸을 보고 있는
+모든 클라이언트에 **WebSocket으로 즉시 브로드캐스트**한다. 클라이언트는 알림을 받으면 현황을
+다시 조회해 타임라인을 갱신한다 — 새로고침 없이.
+
+- 엔드포인트: `ws://<host>/ws` (네이티브 WebSocket, STOMP). 구독: `/topic/rooms/{roomId}`
+- 페이로드 `RoomChangeEvent {roomId, actorMemberId, at}` — "이 룸이 바뀌었다"만 알린다(델타 비탑재)
+- 변경 지점은 3단계에서 만든 `RoomChangeNotifier` 한 곳으로 모여 있어 발행만 얹었다
+- 브로드캐스트 지연: 단일 인스턴스 SimpleBroker, 구독자 20 기준 발행~수신 p95 ≈ 70ms
+- 재현/검증: `backend/src/test/java/com/studyroom/realtime/` (STOMP 통합 + 지연 측정)
+
+프론트: 룸 상세(`/rooms/:id`)에서 자동 구독, 헤더에 연결 상태 표시. 두 창을 띄워 한쪽에서
+홀딩하면 다른 쪽 타임라인이 즉시 갱신되는 것을 볼 수 있다.
+
 ## 다음 단계
 
-로드맵 4단계(실시간): WebSocket/STOMP로 좌석 상태(예약·홀딩·만료) 브로드캐스트.
+로드맵 5단계(이벤트 추첨): 스케줄러 기반 추첨 로직 + 당첨자 알림 발행.

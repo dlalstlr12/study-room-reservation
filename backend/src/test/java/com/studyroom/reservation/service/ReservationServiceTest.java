@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.studyroom.common.cache.RoomScheduleCache;
+import com.studyroom.common.realtime.RoomChangeNotifier;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.LockStrategy;
@@ -51,7 +51,7 @@ class ReservationServiceTest {
 	@Mock
 	private TransactionTemplate txTemplate;
 	@Mock
-	private RoomScheduleCache roomScheduleCache;
+	private RoomChangeNotifier roomChangeNotifier;
 
 	private ReservationService reservationService;
 
@@ -62,7 +62,7 @@ class ReservationServiceTest {
 	void setUp() {
 		reservationService = new ReservationService(reservationRepository, memberService, roomService,
 				roomRepository, txTemplate, new NoOpDistributedLock(),
-				new ReservationLockProperties(LockStrategy.NONE), roomScheduleCache);
+				new ReservationLockProperties(LockStrategy.NONE), roomChangeNotifier);
 		// txTemplate.execute 는 콜백을 그대로 실행한다 (트랜잭션 경계는 통합 테스트에서 검증).
 		lenient().when(txTemplate.execute(any())).thenAnswer(
 				inv -> inv.getArgument(0, TransactionCallback.class).doInTransaction(null));

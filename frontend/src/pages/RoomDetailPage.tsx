@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { createHold, confirmHold, releaseHold } from '../api/holds'
@@ -8,6 +8,7 @@ import { ScheduleTypeBadge } from '../components/StatusBadge'
 import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Field, Select, Spinner } from '../components/ui'
 import { useApi } from '../hooks/useApi'
+import { onConnectionChange, subscribeRoom } from '../realtime/roomChannel'
 import type { Hold, RoomSchedule } from '../types'
 import {
   DAY_TRACK,
@@ -39,11 +40,28 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): b
 export function RoomDetailPage() {
   const { roomId: roomIdParam } = useParams()
   const roomId = Number(roomIdParam)
-  const { status: authStatus } = useAuth()
+  const { status: authStatus, user } = useAuth()
   const toast = useToast()
 
   const [date, setDate] = useState(todayStr())
   const schedule = useApi<RoomSchedule>(() => getRoomSchedule(roomId, date), [roomId, date])
+
+  const [live, setLive] = useState(false)
+  useEffect(() => onConnectionChange(setLive), [])
+
+  const myId = user?.id ?? null
+  // 항상 최신 값을 보도록 ref로 감싸 구독은 roomId당 1회만 걸리게 한다
+  const onRoomEvent = useRef<(actorMemberId: number | null) => void>(() => {})
+  onRoomEvent.current = (actorMemberId) => {
+    schedule.reload()
+    if (myId != null && actorMemberId !== myId) {
+      toast.info('현황이 갱신되었습니다')
+    }
+  }
+  useEffect(
+    () => subscribeRoom(roomId, (event) => onRoomEvent.current(event.actorMemberId)),
+    [roomId],
+  )
 
   const starts = useMemo(halfHourStarts, [])
   const [startTime, setStartTime] = useState('10:00')
@@ -111,10 +129,15 @@ export function RoomDetailPage() {
         <Link to="/rooms" className="page__back">
           ← 룸 목록
         </Link>
-        <h1>{schedule.data?.roomName ?? `룸 #${roomId}`}</h1>
+        <div className="page__head-row">
+          <h1>{schedule.data?.roomName ?? `룸 #${roomId}`}</h1>
+          <span className={`live live--${live ? 'on' : 'off'}`} title={live ? '실시간 연결됨' : '연결 끊김'}>
+            실시간
+          </span>
+        </div>
         <p className="page__lead">
-          예약·홀딩 현황입니다. 홀딩은 {''}
-          <strong>10분</strong> 뒤 자동 해제되며, 그 안에 확정해야 예약이 됩니다.
+          예약·홀딩 현황입니다. 다른 사용자의 변경이 <strong>새로고침 없이</strong> 반영됩니다.
+          홀딩은 <strong>10분</strong> 뒤 자동 해제됩니다.
         </p>
       </div>
 

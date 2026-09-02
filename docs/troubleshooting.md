@@ -197,3 +197,67 @@ Hikari pool 20, 로깅 WARN. k6 20 VU × 30초, 같은 룸·같은 시간대로�
 재현/검증 코드: `backend/src/test/java/com/studyroom/reservation/hold/`,
 `.../reservation/schedule/`, `.../common/cache/`.
 부하 스크립트: `backend/load-test/holding-rush.js`, `backend/load-test/room-read.js`.
+
+---
+
+## 4단계 — 실시간 좌석 상태 브로드캐스트
+
+### 문제 — 현황판이 stale하다
+
+3단계까지 룸 현황(`GET /api/rooms/{id}/schedule`)은 **내가 액션하거나 새로고침할 때만** 갱신된다.
+다른 사람이 같은 시간대를 홀딩/예약해도 내 타임라인은 모르고, 확정 버튼을 눌러서야 409를 만난다.
+
+폴링으로 메꾸면? 간격이 짧으면 서버 부하, 길면 여전히 stale. 좌석 현황은 "바뀌는 순간"이
+드문드문이라 폴링과 특히 안 맞는다.
+
+### 해결 — 변경 지점에서 WebSocket 브로드캐스트
+
+3단계에서 룸 현황을 바꾸는 모든 지점은 이미 한 곳(`RoomChangeNotifier`, 3단계엔
+`RoomScheduleCache.evictAll()` 직접 호출이었다)으로 모여 있었다. 여기에 발행을 얹는다.
+
+```java
+public void roomChanged(Long roomId, Long actorMemberId) {
+    roomScheduleCache.evictAll();                        // 다음 조회가 최신을 읽도록
+    messaging.convertAndSend("/topic/rooms/" + roomId,   // 구독자 즉시 갱신
+            RoomChangeEvent.now(roomId, actorMemberId));
+}
+```
+
+- **알림 → 재조회** 방식. 이벤트는 `{roomId, actorMemberId, at}`만 싣는다. 클라이언트는 델타를
+  병합하지 않고 그냥 `schedule.reload()` 한다 — idempotent하고, 캐시가 방금 무효화됐으므로
+  DB 조회는 1회뿐. 델타 병합의 구간 매칭 버그를 피한다.
+- `actorMemberId`로 "내가 한 액션"이면 클라이언트가 토스트를 생략한다(내 액션 토스트는 이미 봤다).
+  홀딩 TTL 만료·백스톱은 `actorMemberId = null`.
+- 발행 실패(`convertAndSend`)는 삼켜서 로그만 — 브로드캐스트가 예약/홀딩 트랜잭션을 깨지 않는다.
+- STOMP 엔드포인트는 **네이티브 WebSocket**(`/ws`, SockJS 폴백 없음). 브로커는 인메모리
+  `SimpleBroker`(`/topic`). 구독은 인증 불필요 — schedule은 이미 REST로 완전 공개다.
+
+### 마주친 것 — 클라이언트/서버 Jackson 모듈 불일치
+
+STOMP 통합 테스트에서 이벤트가 구독자에게 도착하지 않았다. 서버 로그엔 발행 성공, 클라이언트는
+조용히 프레임을 버림. `StompSessionHandlerAdapter.handleException`을 구현해 보니:
+
+```
+MessageConversionException: Java 8 date/time type `java.time.Instant` not supported by default:
+add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+```
+
+서버 브로커의 `MappingJackson2MessageConverter`는 Spring Boot가 java.time 모듈이 등록된
+ObjectMapper를 주입해줘서 `Instant`를 ISO 문자열로 잘 직렬화했다. 반면 테스트에서
+`new MappingJackson2MessageConverter()`로 만든 클라이언트 컨버터는 **맨 ObjectMapper**라
+역직렬화에서 터졌다. → 테스트 클라이언트도 `Jackson2ObjectMapperBuilder.json().build()`로 맞춤.
+(프론트는 `@stomp/stompjs` + `JSON.parse`라 무관.)
+
+### 수치 — 브로드캐스트 지연
+
+`RoomChangeBroadcastTest.fanout_latency`: 단일 인스턴스, `SimpleBroker`, 같은 JVM에
+WebSocket 구독자 20개 연결 → 홀딩 1회 → 각 구독자의 `발행(at) ~ 수신` 지연.
+
+| 구독자 | p50 | p95 |
+|---|---|---|
+| 20 | ~70ms | ~70ms |
+
+이벤트가 없을 땐 요청 0. 폴링(예: 5초 간격 × 20명 = 240 req/min)과 달리 변경 순간에만
+20건의 푸시가 나간다.
+
+재현/검증 코드: `backend/src/test/java/com/studyroom/realtime/`.

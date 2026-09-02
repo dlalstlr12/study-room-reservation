@@ -845,6 +845,40 @@ a:hover {
   color: var(--ink-soft);
 }
 
+.page__head-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+/* live = WebSocket 연결 표시 (기존 .health 도어램프 패턴) */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--rule-strong);
+}
+
+.live--on::before {
+  background: var(--free);
+}
+
+.live--off::before {
+  background: var(--stop);
+}
+
 .room-card--link {
   cursor: pointer;
 }

@@ -1,10 +1,10 @@
 package com.studyroom.reservation.hold;
 
-import com.studyroom.common.cache.RoomScheduleCache;
 import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.common.lock.DistributedLock;
 import com.studyroom.common.lock.RedissonDistributedLock;
+import com.studyroom.common.realtime.RoomChangeNotifier;
 import com.studyroom.member.entity.Member;
 import com.studyroom.reservation.SlotValidator;
 import com.studyroom.reservation.dto.ReservationResponse;
@@ -38,12 +38,12 @@ public class HoldService {
 	private final MemberService memberService;
 	private final TransactionTemplate txTemplate;
 	private final ReservationHoldProperties holdProperties;
-	private final RoomScheduleCache roomScheduleCache;
+	private final RoomChangeNotifier roomChangeNotifier;
 	private final DistributedLock roomLock;
 
 	public HoldService(HoldRepository holdRepository, ReservationRepository reservationRepository,
 			RoomService roomService, MemberService memberService, TransactionTemplate txTemplate,
-			ReservationHoldProperties holdProperties, RoomScheduleCache roomScheduleCache,
+			ReservationHoldProperties holdProperties, RoomChangeNotifier roomChangeNotifier,
 			RedissonClient redissonClient) {
 		this.holdRepository = holdRepository;
 		this.reservationRepository = reservationRepository;
@@ -51,7 +51,7 @@ public class HoldService {
 		this.memberService = memberService;
 		this.txTemplate = txTemplate;
 		this.holdProperties = holdProperties;
-		this.roomScheduleCache = roomScheduleCache;
+		this.roomChangeNotifier = roomChangeNotifier;
 		this.roomLock = new RedissonDistributedLock(redissonClient);
 	}
 
@@ -73,7 +73,7 @@ public class HoldService {
 			holdRepository.save(created, holdProperties.ttl());
 			return created;
 		});
-		roomScheduleCache.evictAll();
+		roomChangeNotifier.roomChanged(room.getId(), memberId);
 		return HoldResponse.from(hold, room.getName());
 	}
 
@@ -97,7 +97,7 @@ public class HoldService {
 			holdRepository.delete(hold);
 			return reservation;
 		});
-		roomScheduleCache.evictAll();
+		roomChangeNotifier.roomChanged(roomId, memberId);
 		return result;
 	}
 
@@ -108,7 +108,7 @@ public class HoldService {
 			throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
 		}
 		holdRepository.delete(hold);
-		roomScheduleCache.evictAll();
+		roomChangeNotifier.roomChanged(roomId, memberId);
 	}
 
 	public List<HoldResponse> myHolds(Long memberId) {

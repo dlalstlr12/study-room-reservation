@@ -12,6 +12,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,9 +59,16 @@ public class LotteryController {
 		return lotteryService.getEvent(eventId, principal.memberId());
 	}
 
-	@Operation(summary = "수동 추첨", description = "ADMIN. drawAt 전이라도 즉시 추첨. 이미 추첨됐으면 409.")
+	@Operation(summary = "지금 추첨", description = "ADMIN. 대상(현재 이용중/전체)에서 즉시 추첨. 이미 추첨됐으면 409.")
 	@PostMapping("/{eventId}/draw")
 	public LotteryEventResponse draw(@PathVariable Long eventId) {
-		return lotteryService.draw(eventId, true);
+		return lotteryService.draw(eventId);
+	}
+
+	@Operation(summary = "이벤트 삭제", description = "ADMIN. 이벤트와 응모·당첨 기록을 함께 삭제.")
+	@DeleteMapping("/{eventId}")
+	public ResponseEntity<Void> delete(@PathVariable Long eventId) {
+		lotteryService.deleteEvent(eventId);
+		return ResponseEntity.noContent().build();
 	}
 }

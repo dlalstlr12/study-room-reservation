@@ -27,7 +27,3 @@ reservation:
   hold:
     ttl: PT10M        # 홀딩 유지 시간 (이 안에 확정 안 하면 Redis가 자동 삭제)
     sweep-ms: 60000   # 백스톱 스윕 주기 (keyspace 만료 이벤트를 놓쳤을 때 정합성 보정)
-
-lottery:
-  draw:
-    poll-ms: 10000    # 추첨 스케줄러 폴링 주기 (drawAt 도래한 SCHEDULED 이벤트 추첨)

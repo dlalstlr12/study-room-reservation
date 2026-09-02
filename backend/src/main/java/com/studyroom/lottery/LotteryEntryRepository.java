@@ -18,4 +18,6 @@ public interface LotteryEntryRepository extends JpaRepository<LotteryEntry, Long
 	long countByEventId(Long eventId);
 
 	long countByEventIdAndWinnerTrue(Long eventId);
+
+	void deleteByEventId(Long eventId);
 }

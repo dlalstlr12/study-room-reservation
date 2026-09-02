@@ -6,7 +6,6 @@ import com.studyroom.lottery.dto.LotteryEventCreateRequest;
 import com.studyroom.lottery.dto.LotteryResultMessage;
 import com.studyroom.support.LotteryScenarioSupport;
 import com.studyroom.support.StompTestClient;
-import java.time.LocalDateTime;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
@@ -25,17 +24,16 @@ class LotteryBroadcastTest extends LotteryScenarioSupport {
 	@Test
 	@DisplayName("draw() → /topic/lottery/{id} 로 당첨 결과 브로드캐스트")
 	void draw_is_announced() throws Exception {
-		LocalDateTime target = tomorrowAt(15);
-		reserve(newMember(), target.minusMinutes(30), target.plusMinutes(30));
-		reserve(newMember(), target.minusMinutes(30), target.plusMinutes(30));
+		reserveNow(newMember());
+		reserveNow(newMember());
 		Long eventId = lotteryService.createEvent(new LotteryEventCreateRequest(
-				"발표 추첨", "커피", target, LocalDateTime.now().plusHours(1), 1)).id();
+				"발표 추첨", "커피", LotteryAudience.CURRENT_USERS, 1)).id();
 
 		StompSession session = StompTestClient.connect(port);
 		BlockingQueue<LotteryResultMessage> events = StompTestClient.subscribe(
 				session, "/topic/lottery/" + eventId, LotteryResultMessage.class);
 
-		lotteryService.draw(eventId, true);
+		lotteryService.draw(eventId);
 
 		LotteryResultMessage message = events.poll(3, TimeUnit.SECONDS);
 		assertThat(message).isNotNull();

@@ -12,6 +12,7 @@ import com.studyroom.member.entity.Member;
 import com.studyroom.member.repository.MemberRepository;
 import com.studyroom.reservation.repository.ReservationRepository;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * 이벤트 추첨. {@code targetAt} 시점에 이용 중이던 회원을 응모시키고, 시드 기반으로 당첨자를 뽑는다.
+ * 이벤트 추첨. 대상은 <b>추첨 시점에 이용 중인 회원</b>({@link LotteryAudience#CURRENT_USERS})
+ * 또는 <b>전체 회원</b>({@link LotteryAudience#ALL_USERS}). ADMIN이 "지금 추첨"을 누르면 뽑는다.
  *
- * <p>추첨은 항상 Redisson 락 안에서 {@code SCHEDULED → DRAWN} 상태를 가드한다 — 스케줄러 중복
- * 실행이나 다중 인스턴스에서도 정확히 한 번만 뽑힌다.
+ * <p>추첨은 항상 Redisson 락 안에서 {@code SCHEDULED → DRAWN} 상태를 가드한다 — 동시 요청이나
+ * 다중 인스턴스에서도 정확히 한 번만 뽑힌다. 시드를 기록해 결과를 재현·검증할 수 있게 한다.
  */
 @Service
 public class LotteryService {
@@ -61,35 +63,36 @@ public class LotteryService {
 	@Transactional
 	public LotteryEventResponse createEvent(LotteryEventCreateRequest request) {
 		LotteryEvent event = eventRepository.save(LotteryEvent.create(
-				request.title(), request.prize(), request.targetAt(), request.drawAt(),
-				request.winnerCount()));
-		return toResponse(event, List.of(), null);
+				request.title(), request.prize(), request.audience(), request.winnerCount()));
+		return LotteryEventResponse.of(event, 0, List.of(), MyLotteryResult.NONE);
 	}
 
-	/**
-	 * 추첨 실행. 수동(ADMIN)·스케줄러 공용.
-	 *
-	 * @param manual true 면 이미 추첨된 이벤트에 {@link ErrorCode#LOTTERY_ALREADY_DRAWN},
-	 *               false(스케줄러) 면 조용히 건너뛴다
-	 */
-	public LotteryEventResponse draw(Long eventId, boolean manual) {
+	@Transactional
+	public void deleteEvent(Long eventId) {
+		LotteryEvent event = eventRepository.findById(eventId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.LOTTERY_EVENT_NOT_FOUND));
+		entryRepository.deleteByEventId(eventId);
+		eventRepository.delete(event);
+	}
+
+	/** ADMIN 수동 추첨. 이미 추첨됐으면 {@link ErrorCode#LOTTERY_ALREADY_DRAWN}. */
+	public LotteryEventResponse draw(Long eventId) {
 		eventLock.runWithLock("lock:lottery:event:" + eventId, () ->
-				txTemplate.execute(status -> doDraw(eventId, manual)));
+				txTemplate.execute(status -> doDraw(eventId)));
 		return getEvent(eventId, null);
 	}
 
-	private Void doDraw(Long eventId, boolean manual) {
+	private Void doDraw(Long eventId) {
 		LotteryEvent event = eventRepository.findById(eventId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.LOTTERY_EVENT_NOT_FOUND));
 		if (!event.isDrawable()) {
-			if (manual) {
-				throw new BusinessException(ErrorCode.LOTTERY_ALREADY_DRAWN);
-			}
-			return null; // 스케줄러 중복 — 이미 다른 실행이 뽑음
+			throw new BusinessException(ErrorCode.LOTTERY_ALREADY_DRAWN);
 		}
-		// (아래에서 markDrawn 후 이 트랜잭션 안에서 이벤트 발행 → 커밋되면 AFTER_COMMIT 리스너가 발표)
 
-		List<Long> candidates = reservationRepository.findActiveMemberIdsAt(event.getTargetAt());
+		List<Long> candidates = switch (event.getAudience()) {
+			case CURRENT_USERS -> reservationRepository.findActiveMemberIdsAt(LocalDateTime.now());
+			case ALL_USERS -> memberRepository.findAllMemberIds();
+		};
 		long seed = SEED_SOURCE.nextLong();
 		Set<Long> winners = Set.copyOf(Lottery.draw(candidates, event.getWinnerCount(), seed));
 
@@ -102,15 +105,16 @@ public class LotteryService {
 		}
 		event.markDrawn(seed);
 
-		log.info("[추첨] event={} seed={} 후보={}명{} 당첨={}", eventId, seed, candidates.size(),
-				candidates, winners);
+		log.info("[추첨] event={} 대상={} seed={} 후보={}명 당첨={}", eventId, event.getAudience(), seed,
+				candidates.size(), winners);
+		// 이 트랜잭션 안에서 발행 → 커밋되면 AFTER_COMMIT 리스너가 발표한다
 		eventPublisher.publishEvent(new LotteryDrawnEvent(eventId));
 		return null;
 	}
 
 	@Transactional(readOnly = true)
 	public List<LotteryEventResponse> getEvents(Long viewerMemberId) {
-		List<LotteryEvent> events = eventRepository.findAllByOrderByDrawAtDesc();
+		List<LotteryEvent> events = eventRepository.findAllByOrderByIdDesc();
 		if (events.isEmpty()) {
 			return List.of();
 		}
@@ -149,6 +153,7 @@ public class LotteryService {
 		List<String> winners = entries.stream()
 				.filter(LotteryEntry::isWinner)
 				.map(e -> memberNames.getOrDefault(e.getMemberId(), "(탈퇴 회원)"))
+				.sorted()
 				.toList();
 		MyLotteryResult myResult = MyLotteryResult.NONE;
 		if (viewerMemberId != null) {
@@ -159,11 +164,6 @@ public class LotteryService {
 					.orElse(MyLotteryResult.NONE);
 		}
 		return LotteryEventResponse.of(event, entries.size(), winners, myResult);
-	}
-
-	private LotteryEventResponse toResponse(LotteryEvent event, List<String> winners,
-			Long viewerMemberId) {
-		return LotteryEventResponse.of(event, 0, winners, MyLotteryResult.NONE);
 	}
 
 	private Map<Long, String> memberNames(List<Long> memberIds) {

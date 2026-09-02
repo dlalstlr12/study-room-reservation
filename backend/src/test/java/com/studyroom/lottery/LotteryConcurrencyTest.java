@@ -6,7 +6,6 @@ import com.studyroom.common.exception.BusinessException;
 import com.studyroom.common.exception.ErrorCode;
 import com.studyroom.lottery.dto.LotteryEventCreateRequest;
 import com.studyroom.support.LotteryScenarioSupport;
-import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -15,20 +14,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * 스케줄러 중복 실행이나 다중 인스턴스에서 같은 이벤트를 동시에 추첨해도 딱 한 번만 뽑힌다.
+ * 같은 이벤트를 동시에 여러 번 추첨해도(다중 인스턴스·중복 클릭) 딱 한 번만 뽑힌다.
  */
 class LotteryConcurrencyTest extends LotteryScenarioSupport {
 
 	@Test
 	@DisplayName("동시 추첨 — 한 번만 성공, 응모자 중복 생성 없음")
 	void concurrent_draw_runs_once() throws InterruptedException {
-		LocalDateTime target = tomorrowAt(11);
 		int candidates = 6;
 		for (int i = 0; i < candidates; i++) {
-			reserve(newMember(), target.minusMinutes(30), target.plusMinutes(30));
+			reserveNow(newMember());
 		}
 		Long eventId = lotteryService.createEvent(new LotteryEventCreateRequest(
-				"동시 추첨", "상품", target, LocalDateTime.now().plusHours(1), 2)).id();
+				"동시 추첨", "상품", LotteryAudience.CURRENT_USERS, 2)).id();
 
 		int threads = 8;
 		AtomicInteger success = new AtomicInteger();
@@ -44,7 +42,7 @@ class LotteryConcurrencyTest extends LotteryScenarioSupport {
 				ready.countDown();
 				try {
 					go.await();
-					lotteryService.draw(eventId, true);
+					lotteryService.draw(eventId);
 					success.incrementAndGet();
 				} catch (BusinessException e) {
 					if (e.getErrorCode() == ErrorCode.LOTTERY_ALREADY_DRAWN) {

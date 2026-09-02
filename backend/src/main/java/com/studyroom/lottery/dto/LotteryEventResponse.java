@@ -1,5 +1,6 @@
 package com.studyroom.lottery.dto;
 
+import com.studyroom.lottery.LotteryAudience;
 import com.studyroom.lottery.LotteryEvent;
 import com.studyroom.lottery.LotteryEventStatus;
 import java.time.LocalDateTime;
@@ -9,8 +10,7 @@ public record LotteryEventResponse(
 		Long id,
 		String title,
 		String prize,
-		LocalDateTime targetAt,
-		LocalDateTime drawAt,
+		LotteryAudience audience,
 		int winnerCount,
 		LotteryEventStatus status,
 		LocalDateTime drawnAt,
@@ -23,8 +23,8 @@ public record LotteryEventResponse(
 	public static LotteryEventResponse of(LotteryEvent event, long entryCount, List<String> winners,
 			MyLotteryResult myResult) {
 		return new LotteryEventResponse(
-				event.getId(), event.getTitle(), event.getPrize(),
-				event.getTargetAt(), event.getDrawAt(), event.getWinnerCount(),
-				event.getStatus(), event.getDrawnAt(), entryCount, winners, myResult);
+				event.getId(), event.getTitle(), event.getPrize(), event.getAudience(),
+				event.getWinnerCount(), event.getStatus(), event.getDrawnAt(),
+				entryCount, winners, myResult);
 	}
 }

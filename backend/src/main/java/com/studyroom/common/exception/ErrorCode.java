@@ -30,7 +30,12 @@ public enum ErrorCode {
 
 	// 홀딩 (로드맵 3단계)
 	RESERVATION_HOLD_CONFLICT(HttpStatus.CONFLICT, "다른 사용자가 해당 시간대를 홀딩 중입니다. 잠시 후 다시 시도해 주세요."),
-	RESERVATION_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "홀딩이 만료되었거나 존재하지 않습니다.");
+	RESERVATION_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "홀딩이 만료되었거나 존재하지 않습니다."),
+
+	// 이벤트 추첨 (로드맵 5단계)
+	LOTTERY_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "추첨 이벤트를 찾을 수 없습니다."),
+	LOTTERY_ALREADY_DRAWN(HttpStatus.CONFLICT, "이미 추첨이 완료된 이벤트입니다."),
+	LOTTERY_INVALID_SCHEDULE(HttpStatus.BAD_REQUEST, "추첨 이벤트 설정이 올바르지 않습니다.");
 
 	private final HttpStatus status;
 	private final String message;

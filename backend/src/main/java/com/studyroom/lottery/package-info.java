@@ -1,6 +1,7 @@
 /**
  * 이벤트 추첨 도메인.
- * 특정 시점에 이용중인(OCCUPIED) 예약을 스냅샷으로 조회해 응모자를 구성하고,
- * 스케줄러 기반으로 추첨을 실행해 당첨자를 알림 도메인으로 전달한다.
+ * {@code targetAt} 시점에 이용 중이던(RESERVED) 예약의 회원을 스냅샷으로 응모시키고,
+ * 스케줄러가 {@code drawAt} 도래 시 추첨을 실행한다. 추첨 시드를 기록해 결과를 재현·검증할 수 있게 하고,
+ * 당첨 발표는 WebSocket({@code /topic/lottery})으로 브로드캐스트한다.
  */
 package com.studyroom.lottery;

@@ -10,9 +10,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 추첨이 <b>커밋된 뒤</b> 당첨 결과를 WebSocket으로 발표한다.
+ * 추첨이 <b>커밋된 뒤</b> 당첨 결과를 <b>공개 발표 피드</b>({@code /topic/lottery})로 브로드캐스트한다.
  * AFTER_COMMIT이라 추첨 트랜잭션이 롤백되면 오발표가 나가지 않는다.
- * (로드맵 6단계에서 이 자리에 Kafka 발행 리스너가 추가된다.)
+ *
+ * <p>회원별 개인 알림(당첨/미당첨 이력·푸시)은 6단계에서 추가된
+ * {@code com.studyroom.notification.LotteryNotificationPublisher}가 Kafka로 발행한다 — 관심사 분리.
  */
 @Component
 public class LotteryAnnouncementListener {

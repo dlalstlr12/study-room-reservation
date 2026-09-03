@@ -157,6 +157,28 @@ ADMIN이 추첨한다. 추첨은 **재현 가능**하다 — `SecureRandom` 시�
 - 재현/검증: `backend/src/test/java/com/studyroom/lottery/`
 - 프론트: `/lottery` — 이벤트 목록·내 결과, "당첨자 확인하기" 토글, ADMIN 삭제, 추첨 결과 실시간 발표
 
+## 비동기 알림 (로드맵 6단계)
+
+추첨 결과와 전체 공지를 **Kafka**로 발행하고, 워커가 소비해 알림 이력을 남기고 실시간으로 밀어준다.
+추첨 트랜잭션은 커밋 후 발행만 하므로(`@TransactionalEventListener(AFTER_COMMIT)`), 추첨 응답
+시간은 대상 회원 수와 무관하다.
+
+```
+추첨/공지 ─▶ Kafka notification-events ─▶ 워커 ─┬─ dedup_key 멱등 저장 (notifications)
+                                                ├─ 발송 (실패 시 재시도)
+                                                └─ WebSocket /topic/notifications/{memberId}
+   실패 4회 ─▶ -retry-500 → -retry-1000 → -retry-2000 → -dlt ─▶ 이력 FAILED
+```
+
+- 멱등: `dedup_key`(`lottery:{eventId}:{memberId}`) UNIQUE + 저장 전 조회 → at-least-once 재처리에도 1건
+- 재시도/격리: `@RetryableTopic` 지수 백오프(0.5s→1s→2s) → 소진 시 DLT + `@DltHandler`
+- 발송 장애 시뮬레이션: `notification.delivery.failure-rate` (0.3 → DLT 유입 ~0.9%)
+- 수치: 공지 발행 p50 15ms(회원 수 무관), 232건 팬아웃 end-to-end ~3.8s, 워커 ~400 msg/s
+- API: `GET /api/notifications`, `/unread-count`, `POST /api/notifications/{id}/read`,
+  `/read-all`, `/announcements`(ADMIN)
+- 재현/검증: `backend/src/test/java/com/studyroom/notification/`
+- 프론트: topbar 알림 벨(안읽음 배지·실시간 수신), `/notifications` 이력 페이지, ADMIN 전체 공지 폼
+
 ## 다음 단계
 
-로드맵 6단계(메시징/알림): Kafka 또는 RabbitMQ 도입, 알림 워커, 재시도 + DLQ.
+로드맵 7단계(랭킹): 퇴실 이벤트 → Redis Sorted Set 누적 이용시간 랭킹, 일간/전체 분리.

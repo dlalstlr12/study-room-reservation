@@ -321,3 +321,81 @@ return ordered.subList(0, min(winnerCount, size));
 `new Random(seed)` + 정렬된 후보 조합이 균등 분포를 유지한다.
 
 재현/검증 코드: `backend/src/test/java/com/studyroom/lottery/`.
+
+---
+
+## 6단계 — 비동기 알림 (Kafka)
+
+추첨 결과·공지를 개인별 알림으로 남기고 실시간으로 밀어준다. 두 발송 패턴(전체 회원 대상 대량
+공지 / 현재 이용중 회원 대상 즉시 알림)을 **추첨 도메인 하나**로 구현한다.
+
+```
+추첨 커밋 ─(AFTER_COMMIT)─▶ Kafka: notification-events ─▶ 워커(@KafkaListener)
+                                                            ├─ dedup_key 조회 (멱등)
+                                                            ├─ 발송 (실패 시 재시도)
+                                                            ├─ notifications 이력 (SENT)
+                                                            └─ WebSocket /topic/notifications/{id}
+     실패 반복 ─▶ -retry-500 ─▶ -retry-1000 ─▶ -retry-2000 ─▶ -dlt ─▶ @DltHandler (이력 FAILED)
+```
+
+### 문제 1 — 동기로 전 회원에게 발송하면 추첨이 그 무게를 진다
+
+추첨 트랜잭션 안에서 대상 회원 수만큼 알림을 저장·발송하면, 추첨 응답 시간이 회원 수에 비례해
+늘어난다. 더 나쁜 건 **발송 한 건의 실패가 추첨 트랜잭션을 롤백**시킬 수 있다는 것 — 추첨은
+끝났는데 결과가 사라진다.
+
+**해결 — 커밋 후 발행, 워커가 소비**: `LotteryNotificationPublisher` 가
+`@TransactionalEventListener(AFTER_COMMIT)` 에서 대상별 메시지를 Kafka로 발행만 한다. 추첨은
+즉시 커밋·응답하고(발행은 fire-and-forget, 응답시간이 회원 수와 무관), 저장·발송·푸시는 워커의
+몫이다. 5단계에서 만든 `@TransactionalEventListener` 자리가 그대로 발행 훅이 됐다.
+
+### 문제 2 — at-least-once 재처리가 알림을 중복시킨다
+
+컨슈머 리밸런스, 재시도, 오프셋 커밋 실패 등으로 같은 메시지가 두 번 처리되면 알림이 두 번
+저장되고 두 번 푸시된다.
+
+**해결 — dedup_key**: 메시지마다 `lottery:{eventId}:{memberId}` 같은 멱등 키를 싣고,
+워커는 저장 전에 `existsByDedupKey` 로 거른다. `notifications.dedup_key` UNIQUE 제약이 최종
+방어선(경합 시 `DataIntegrityViolationException` 을 잡아 "이미 전달됨"으로 처리). 발행이
+at-least-once여도 저장은 effectively-once.
+
+### 문제 3 — 외부 발송이 일시적으로 죽으면?
+
+발송 게이트웨이(이메일·푸시)가 잠깐 장애면, 무한 재시도로 컨슈머가 멈추거나 메시지를 버리게 된다.
+
+**해결 — `@RetryableTopic` 논블로킹 재시도 + DLT**: 발송 예외가 나면 메시지를
+`notification-events-retry-*` 토픽으로 넘겨 지수 백오프(0.5s → 1s → 2s)로 재시도한다. 메인
+파티션은 막히지 않는다. 4회를 모두 소진하면 `notification-events-dlt` 로 격리하고 `@DltHandler`
+가 이력을 `FAILED` 로 남긴다 — 운영자가 원인을 고친 뒤 DLT에서 재처리할 수 있다.
+
+### 한계 (다음 단계 예고)
+
+- **발행 자체의 유실**: `AFTER_COMMIT` 뒤 브로커가 죽으면 메시지가 발행되지 못하고 사라진다.
+  DB 커밋과 발행을 한 원자 단위로 묶는 **트랜잭션 아웃박스 패턴은 8단계**에서 다룬다.
+- **STOMP 세션 미인증**: `/topic/notifications/{memberId}` 는 4·5단계처럼 구독 인증이 없다.
+  `/user/queue` + STOMP CONNECT 인증으로의 전환은 후속 과제.
+
+### 마주친 것 — 테스트 컨텍스트끼리 같은 컨슈머 그룹을 공유한다
+
+Testcontainers Kafka는 싱글턴이라 여러 `@SpringBootTest` 컨텍스트가 같은 브로커·같은
+`notification-worker` 그룹에 붙는다. 재시도/DLT 테스트가 발송 실패율을 100%로 올려도, 다른
+컨텍스트의 정상 워커가 그 메시지를 먼저 집어 성공시켜 버렸다.
+
+**해결**: 컨슈머의 토픽·그룹을 프로퍼티(`notification.topic` / `notification.consumer.group-id`)로
+빼고, 재시도/DLT·추첨 알림 E2E 테스트는 각자 전용 토픽·그룹으로 완전히 격리했다. 기본값은 그대로.
+
+### 수치
+
+측정: 로컬 단일 브로커(KRaft), 회원 232명, `AnnouncementService.broadcast` 1회.
+
+| 항목 | 값 |
+|---|---|
+| 공지 발행 엔드포인트 응답 (p50 / p95) | 15ms / ~170ms |
+| ↳ 회원 수 의존성 | 없음 (fire-and-forget 발행) |
+| 232건 팬아웃 end-to-end (발행→소비→DB) | ~3.8s |
+| 워커 발송 처리량 | ~400 msg/s |
+| `failure-rate=0.3` → DLT 유입률 | 관측 0.9% (2/232), 이론값 0.3⁴ ≈ 0.81% |
+
+재현/검증 코드: `backend/src/test/java/com/studyroom/notification/`
+(`NotificationConsumerTest` 멱등, `NotificationRetryDltTest` DLT, `LotteryNotificationFlowTest` E2E),
+부하 스크립트 `backend/load-test/notification-announce.js`.

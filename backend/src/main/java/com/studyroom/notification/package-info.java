@@ -1,7 +1,12 @@
 /**
- * 알림 도메인.
- * 전체 회원 대상(대량, 지연 허용 - 메시지 큐 기반)과
- * 현재 이용중인 회원 대상(소량, 즉시성 - WebSocket 기반) 발송을 분리해서 처리한다.
- * 재시도 정책과 DLQ, 발송 이력 관리를 포함한다.
+ * 알림 도메인 (로드맵 6단계).
+ *
+ * <p>추첨 완료·전체 공지 같은 도메인 이벤트를 커밋 후 Kafka({@code notification-events})로 발행하고,
+ * 워커({@link com.studyroom.notification.NotificationConsumer})가 소비해
+ * {@link com.studyroom.notification.Notification} 이력을 남기고 WebSocket으로 즉시 푸시한다.
+ *
+ * <p>{@code dedup_key} 로 at-least-once 재처리의 중복을 막고, 발송 실패는
+ * {@code @RetryableTopic} 지수 백오프 재시도 → 소진 시 DLT 로 격리한다.
+ * 발행 자체의 유실 방지(트랜잭션 아웃박스)는 8단계에서 다룬다.
  */
 package com.studyroom.notification;

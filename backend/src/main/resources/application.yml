@@ -8,6 +8,22 @@ spring:
     # 캐시 전/후 비교 시 none 으로 오버라이드해서 띄운다.
     type: redis
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: notification-worker
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.studyroom.notification.message.NotificationMessage
+        spring.json.trusted.packages: com.studyroom.notification.message
+
 server:
   port: 8080
 
@@ -27,3 +43,13 @@ reservation:
   hold:
     ttl: PT10M        # 홀딩 유지 시간 (이 안에 확정 안 하면 Redis가 자동 삭제)
     sweep-ms: 60000   # 백스톱 스윕 주기 (keyspace 만료 이벤트를 놓쳤을 때 정합성 보정)
+
+# 비동기 알림 (로드맵 6단계) — 배경·수치: docs/troubleshooting.md
+notification:
+  delivery:
+    # 발송 게이트웨이 장애 시뮬레이션 확률(0.0~1.0). 데모/문서에서 0.3 등으로 올려 재시도·DLT 관찰.
+    failure-rate: 0.0
+  retry:
+    attempts: 4          # 원본 1회 + 재시도 3회 후 DLT
+    backoff-ms: 500
+    backoff-multiplier: 2.0

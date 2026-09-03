@@ -47,6 +47,9 @@ dependencies {
 	// Realtime
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
 
+	// 메시징 (로드맵 6단계 — 비동기 알림)
+	implementation("org.springframework.kafka:spring-kafka")
+
 	// API 문서화
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
 
@@ -60,6 +63,9 @@ dependencies {
 	testImplementation("org.testcontainers:testcontainers:1.20.1")
 	testImplementation("org.testcontainers:junit-jupiter:1.20.1")
 	testImplementation("org.testcontainers:mysql:1.20.1")
+	testImplementation("org.testcontainers:kafka:1.20.1")
+	testImplementation("org.springframework.kafka:spring-kafka-test")
+	testImplementation("org.awaitility:awaitility")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

@@ -1,17 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
-import {
-  listNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-  sendAnnouncement,
-} from '../api/notifications'
+import { sendAnnouncement } from '../api/notifications'
 import { useAuth } from '../auth/AuthContext'
 import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Field, Input, Spinner, Textarea } from '../components/ui'
-import { useApi } from '../hooks/useApi'
+import { useNotifications } from '../notifications/NotificationContext'
 import { onConnectionChange } from '../realtime/stompClient'
-import { subscribeNotifications } from '../realtime/notificationChannel'
 import type { AppNotification } from '../types'
 
 const TYPE_LABEL: Record<AppNotification['type'], string> = {
@@ -21,32 +15,11 @@ const TYPE_LABEL: Record<AppNotification['type'], string> = {
 }
 
 export function NotificationsPage() {
-  const { user, isAdmin } = useAuth()
-  const feed = useApi<AppNotification[]>(() => listNotifications(), [])
+  const { isAdmin } = useAuth()
+  const { items, loading, markRead, markAllRead } = useNotifications()
 
   const [live, setLive] = useState(false)
   useEffect(() => onConnectionChange(setLive), [])
-
-  const reload = useRef(feed.reload)
-  reload.current = feed.reload
-  useEffect(() => {
-    if (!user) return
-    return subscribeNotifications(user.id, () => reload.current())
-  }, [user])
-
-  const handleRead = async (n: AppNotification) => {
-    if (n.read) return
-    try {
-      await markNotificationRead(n.id)
-    } finally {
-      feed.reload()
-    }
-  }
-
-  const handleReadAll = async () => {
-    await markAllNotificationsRead()
-    feed.reload()
-  }
 
   return (
     <div className="page">
@@ -68,22 +41,21 @@ export function NotificationsPage() {
       <Card
         title="받은 알림"
         actions={
-          <Button variant="ghost" onClick={handleReadAll}>
+          <Button variant="ghost" onClick={markAllRead}>
             모두 읽음
           </Button>
         }
       >
-        {feed.loading && <Spinner />}
-        {feed.error && <EmptyState>{feed.error}</EmptyState>}
-        {feed.data && feed.data.length === 0 && <EmptyState>받은 알림이 없습니다.</EmptyState>}
-        {feed.data && feed.data.length > 0 && (
+        {loading && items.length === 0 && <Spinner />}
+        {!loading && items.length === 0 && <EmptyState>받은 알림이 없습니다.</EmptyState>}
+        {items.length > 0 && (
           <ul className="notif-list">
-            {feed.data.map((n) => (
+            {items.map((n) => (
               <li key={n.id}>
                 <button
                   type="button"
                   className={`notif-row${n.read ? '' : ' notif-row--unread'}`}
-                  onClick={() => handleRead(n)}
+                  onClick={() => markRead(n.id)}
                 >
                   <span className="notif-row__meta">
                     <span className={`badge badge--${n.status === 'FAILED' ? 'stop' : 'done'}`}>
@@ -133,8 +105,7 @@ function AnnouncementForm() {
       setBody('')
       setOpen(false)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : '발송에 실패했습니다.'
-      setError(message)
+      setError(err instanceof ApiError ? err.message : '발송에 실패했습니다.')
     } finally {
       setSubmitting(false)
     }

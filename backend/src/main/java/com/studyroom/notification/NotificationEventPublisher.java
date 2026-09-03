@@ -4,6 +4,7 @@ import com.studyroom.notification.message.NotificationMessage;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,18 +18,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class NotificationEventPublisher {
 
-	public static final String TOPIC = "notification-events";
+	/** 기본 토픽 이름. 소비 쪽({@code NotificationConsumer})과 같은 프로퍼티를 본다. */
+	public static final String DEFAULT_TOPIC = "notification-events";
 
 	private static final Logger log = LoggerFactory.getLogger(NotificationEventPublisher.class);
 
 	private final KafkaTemplate<String, NotificationMessage> kafkaTemplate;
+	private final String topic;
 
-	public NotificationEventPublisher(KafkaTemplate<String, NotificationMessage> kafkaTemplate) {
+	public NotificationEventPublisher(KafkaTemplate<String, NotificationMessage> kafkaTemplate,
+			@Value("${notification.topic:" + DEFAULT_TOPIC + "}") String topic) {
 		this.kafkaTemplate = kafkaTemplate;
+		this.topic = topic;
 	}
 
 	public void publish(NotificationMessage message) {
-		kafkaTemplate.send(TOPIC, message.memberId().toString(), message)
+		kafkaTemplate.send(topic, message.memberId().toString(), message)
 				.whenComplete((result, ex) -> {
 					if (ex != null) {
 						log.error("[알림 발행 실패] dedup={}", message.dedupKey(), ex);

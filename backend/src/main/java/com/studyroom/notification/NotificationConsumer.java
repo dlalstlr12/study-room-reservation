@@ -49,7 +49,8 @@ public class NotificationConsumer {
 					multiplierExpression = "${notification.retry.backoff-multiplier}"),
 			dltStrategy = DltStrategy.FAIL_ON_ERROR,
 			autoCreateTopics = "true")
-	@KafkaListener(topics = NotificationEventPublisher.TOPIC, groupId = "notification-worker")
+	@KafkaListener(topics = "${notification.topic:" + NotificationEventPublisher.DEFAULT_TOPIC + "}",
+			groupId = "${notification.consumer.group-id:notification-worker}")
 	public void handle(NotificationMessage message) {
 		if (notificationRepository.existsByDedupKey(message.dedupKey())) {
 			log.debug("[알림] 이미 처리됨 dedup={}", message.dedupKey());

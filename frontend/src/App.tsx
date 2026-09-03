@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { LotteryPage } from './pages/LotteryPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { RoomDetailPage } from './pages/RoomDetailPage'
 import { RoomsPage } from './pages/RoomsPage'
@@ -30,6 +31,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <LotteryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           }
         />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { getHealth } from '../api/health'
 import { useAuth } from '../auth/AuthContext'
+import { NotificationBell } from './NotificationBell'
 import { useToast } from './ToastContext'
 import { Button } from './ui'
 
@@ -12,6 +13,7 @@ const NAV = [
   { to: '/rooms', label: '룸', end: false },
   { to: '/reservations', label: '내 예약', end: false },
   { to: '/lottery', label: '이벤트 추첨', end: false },
+  { to: '/notifications', label: '알림', end: false },
 ]
 
 export function AppLayout() {
@@ -53,7 +55,7 @@ export function AppLayout() {
           </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">STEP 5 · LOTTERY</span>
+            <span className="sidebar__sub">STEP 6 · MESSAGING</span>
           </div>
         </div>
         <nav className="sidebar__nav">
@@ -78,6 +80,7 @@ export function AppLayout() {
 
       <div className="main">
         <header className="topbar">
+          <NotificationBell />
           <div className="topbar__account">
             {status === 'authenticated' && user ? (
               <>

@@ -1154,3 +1154,229 @@ a:hover {
     padding: 1.1rem 1rem 2rem;
   }
 }
+
+/* ============================================================
+   Notifications (로드맵 6단계) — 도어 옆 알림등 + 게시물 목록
+   ============================================================ */
+
+.topbar {
+  gap: 0.9rem;
+}
+
+/* --- 벨: topbar 알림 --- */
+.bell {
+  position: relative;
+  display: flex;
+}
+
+.bell__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.bell__btn:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.bell__btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bell__count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--stop);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  line-height: 16px;
+  text-align: center;
+}
+
+.bell__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.bell__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 320px;
+  max-width: calc(100vw - 2rem);
+  background: var(--panel);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.bell__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-2);
+}
+
+.bell__panel-actions {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.bell__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--sign);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bell__link:hover {
+  text-decoration: underline;
+}
+
+.bell__empty {
+  margin: 0;
+  padding: 1.4rem 0.8rem;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.bell__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* --- 알림 한 줄 (벨 드롭다운) --- */
+.notif {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notif:hover {
+  background: var(--panel-2);
+}
+
+.notif--unread {
+  background: var(--free-soft);
+}
+
+.notif--unread:hover {
+  background: #dce9e1;
+}
+
+.notif__icon {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.notif__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.notif__title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.notif__text {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- 알림 페이지 목록 --- */
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.85rem 0.2rem;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notif-row:hover {
+  background: var(--panel-2);
+}
+
+.notif-row--unread {
+  box-shadow: inset 3px 0 0 var(--free);
+  padding-left: 0.6rem;
+}
+
+.notif-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notif-row__time {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.notif-row__title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.notif-row__text {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}

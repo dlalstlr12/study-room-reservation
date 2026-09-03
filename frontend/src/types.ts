@@ -95,6 +95,21 @@ export interface LotteryResultEvent {
   drawnAt: string
 }
 
+export type NotificationType = 'LOTTERY_WON' | 'LOTTERY_LOST' | 'ANNOUNCEMENT'
+export type NotificationStatus = 'SENT' | 'FAILED'
+
+/** 알림 한 건. 목록 조회와 WebSocket 푸시(`/topic/notifications/{memberId}`)가 같은 모양이다. */
+export interface AppNotification {
+  id: number
+  type: NotificationType
+  title: string
+  body: string
+  refId: number | null
+  status: NotificationStatus
+  read: boolean
+  createdAt: string
+}
+
 export interface TokenResponse {
   accessToken: string
   refreshToken: string

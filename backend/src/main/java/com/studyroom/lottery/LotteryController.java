@@ -32,7 +32,7 @@ public class LotteryController {
 		this.lotteryService = lotteryService;
 	}
 
-	@Operation(summary = "추첨 이벤트 생성", description = "ADMIN. drawAt 도래 시 스케줄러가 자동 추첨한다.")
+	@Operation(summary = "추첨 이벤트 생성", description = "ADMIN. 생성 후 ADMIN이 '지금 추첨'으로 직접 추첨한다.")
 	@PostMapping
 	public ResponseEntity<LotteryEventResponse> create(
 			@Valid @RequestBody LotteryEventCreateRequest request) {

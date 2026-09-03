@@ -179,7 +179,7 @@ erDiagram
 - [x] **3단계 — 캐싱/홀딩**: Redis TTL 기반 좌석 홀딩(10분) + keyspace 만료 이벤트/백스톱, 룸 목록·현황 Redis 캐싱, 30분 슬롯
 - [x] **4단계 — 실시간**: WebSocket/STOMP로 룸 현황 변경(홀딩·예약·만료)을 `/topic/rooms/{id}` 브로드캐스트, 프론트 실시간 타임라인
 - [x] **5단계 — 이벤트 추첨**: 대상(현재 이용중 / 전체) 중 ADMIN 추첨 + 시드 기반 재현 가능한 추첨(Redisson 락·상태 가드) + `@TransactionalEventListener` → `/topic/lottery` 발표
-- [ ] **6단계 — 메시징/알림**: Kafka 또는 RabbitMQ 도입, 알림 워커, 재시도+DLQ
+- [x] **6단계 — 메시징/알림**: Kafka 도입, 추첨/공지 → 알림 워커(`@KafkaListener`), 멱등(`dedup_key`), `@RetryableTopic` 재시도 + DLT, DB 이력 + WebSocket 푸시
 - [ ] **7단계 — 랭킹**: 퇴실 이벤트 → Redis Sorted Set 랭킹 집계
 - [ ] **8단계 — 구독/배치**: Spring Batch 정기결제, 아웃박스 패턴, 멱등성 처리
 - [ ] **9단계 — 인프라/CI-CD**: AWS 배포, GitHub Actions 파이프라인

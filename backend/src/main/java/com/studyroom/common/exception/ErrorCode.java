@@ -35,7 +35,10 @@ public enum ErrorCode {
 	// 이벤트 추첨 (로드맵 5단계)
 	LOTTERY_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "추첨 이벤트를 찾을 수 없습니다."),
 	LOTTERY_ALREADY_DRAWN(HttpStatus.CONFLICT, "이미 추첨이 완료된 이벤트입니다."),
-	LOTTERY_INVALID_SCHEDULE(HttpStatus.BAD_REQUEST, "추첨 이벤트 설정이 올바르지 않습니다.");
+	LOTTERY_INVALID_SCHEDULE(HttpStatus.BAD_REQUEST, "추첨 이벤트 설정이 올바르지 않습니다."),
+
+	// 알림 (로드맵 6단계)
+	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 	private final String message;

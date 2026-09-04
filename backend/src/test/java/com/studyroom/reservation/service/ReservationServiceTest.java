@@ -52,6 +52,8 @@ class ReservationServiceTest {
 	private TransactionTemplate txTemplate;
 	@Mock
 	private RoomChangeNotifier roomChangeNotifier;
+	@Mock
+	private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
 	private ReservationService reservationService;
 
@@ -62,7 +64,7 @@ class ReservationServiceTest {
 	void setUp() {
 		reservationService = new ReservationService(reservationRepository, memberService, roomService,
 				roomRepository, txTemplate, new NoOpDistributedLock(),
-				new ReservationLockProperties(LockStrategy.NONE), roomChangeNotifier);
+				new ReservationLockProperties(LockStrategy.NONE), roomChangeNotifier, eventPublisher);
 		// txTemplate.execute 는 콜백을 그대로 실행한다 (트랜잭션 경계는 통합 테스트에서 검증).
 		lenient().when(txTemplate.execute(any())).thenAnswer(
 				inv -> inv.getArgument(0, TransactionCallback.class).doInTransaction(null));

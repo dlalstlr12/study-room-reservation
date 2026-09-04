@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       소비자는 dedupKey 로 멱등 처리.</li>
  *   <li>{@code SKIP LOCKED} 로 릴레이 인스턴스가 여러 개여도 같은 행을 두 번 발행하지 않는다.</li>
  * </ul>
+ *
+ * <p>주기 실행은 {@link OutboxRelayScheduler} 가 담당한다 — 로직과 스케줄을 분리해 테스트에서
+ * {@link #relay()} 를 직접 호출할 수 있다.
  */
 @Component
 public class OutboxRelay {
@@ -42,8 +44,6 @@ public class OutboxRelay {
 		this.topic = topic;
 	}
 
-	@Scheduled(fixedDelayString = "${subscription.outbox.poll-ms:2000}",
-			initialDelayString = "${subscription.outbox.poll-ms:2000}")
 	@Transactional
 	public void relay() {
 		List<OutboxEvent> pending = outboxEventRepository.lockUnpublished(BATCH_SIZE);

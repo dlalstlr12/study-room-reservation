@@ -39,7 +39,11 @@ public enum ErrorCode {
 	LOTTERY_INVALID_SCHEDULE(HttpStatus.BAD_REQUEST, "추첨 이벤트 설정이 올바르지 않습니다."),
 
 	// 알림 (로드맵 6단계)
-	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다.");
+	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
+
+	// 구독 (로드맵 8단계)
+	SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "구독 정보를 찾을 수 없습니다."),
+	SUBSCRIPTION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "이미 이용 중인 구독입니다.");
 
 	private final HttpStatus status;
 	private final String message;

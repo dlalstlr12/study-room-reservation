@@ -473,3 +473,70 @@ GROUP BY member_id` 로 전체 + 오늘 일간 Sorted Set을 다시 만든다. �
 (`RankingRepositoryTest`, `RankingConcurrencyTest` 원자성, `UsageEventConsumerTest` 멱등,
 `ReservationCheckoutTest`/`ReservationCheckoutSchedulerTest` 퇴실 전이),
 부하 스크립트 `backend/load-test/ranking-read.js`.
+
+---
+
+## 8단계 — 정기 구독권 (Batch · 아웃박스 · 멱등)
+
+PRO 구독료를 Spring Batch로 매일 정기 결제한다. 결제 성공/실패는 알림으로 이어진다.
+
+```
+매일 자정 (또는 ADMIN 수동) ─▶ Spring Batch dailyBillingJob
+  JpaCursorItemReader: ACTIVE & nextBillingAt <= now
+  ItemProcessor: PaymentService.chargeForPeriod(REQUIRES_NEW) 건별 커밋
+    └─ 한 트랜잭션: payments 저장 + subscription renew/PAST_DUE + outbox_events 저장
+OutboxRelay (2초 폴): FOR UPDATE SKIP LOCKED → Kafka subscription-events → published_at
+SubscriptionEventConsumer: → NotificationMessage → 6단계 알림 파이프라인 (notifications + WS)
+```
+
+### 문제 1 — 결제는 됐는데 후속 이벤트가 유실된다 (6·7단계가 남긴 틈)
+
+6·7단계는 `@TransactionalEventListener(AFTER_COMMIT)` 뒤 브로커가 죽으면 메시지를 잃었다.
+결제에서 이게 벌어지면 "돈은 빠져나갔는데 알림도 없고 후속 처리도 안 되는" 상태가 된다.
+
+**해결 — 트랜잭션 아웃박스**: `PaymentService.chargeForPeriod` 안에서 `payments` 저장 ·
+`subscription` 상태 변경 · `outbox_events` 저장이 **한 트랜잭션**이다. 커밋됐다면 이벤트는
+반드시 outbox에 있다. 발행은 별도 릴레이(`OutboxRelay`)가 하고, 브로커가 죽으면 `published_at`
+이 안 찍혀 다음 폴에서 재시도된다. DB 커밋과 발행 사이에 유실 구간이 없다.
+
+### 문제 2 — 배치 재실행·중복 스케줄 → 이중 결제
+
+배치가 두 번 돌거나(수동 + 자정), 앱이 여러 인스턴스면 같은 구독이 두 번 청구될 수 있다.
+
+**해결 — `idempotency_key`(`sub:{id}:{yyyy-MM}`) UNIQUE**: 결제 전에 조회하고, 저장이 UNIQUE
+위반이면 조용히 스킵한다. `PaymentIdempotencyConcurrencyTest`: 8스레드가 같은 (구독, 주기)를
+동시에 결제 → `payments` 정확히 **1건**, `outbox_events` 1건.
+
+### 문제 3 — 릴레이 다중 인스턴스 → 같은 이벤트 두 번 발행
+
+**해결 — `SELECT ... FOR UPDATE SKIP LOCKED`**: 릴레이가 미발행 행을 잠그고 가져오면 다른 릴레이는
+그 행을 건너뛴다. 그래도 at-least-once(발행 후 커밋 전 크래시)라, 소비자는 dedupKey
+(`payment:{subId}:{date}:{eventType}`)로 알림을 한 번만 만든다.
+
+### 문제 4 — 배치 한 건 실패가 잡 전체를 롤백한다
+
+청크 트랜잭션 안에서 서비스가 예외를 던지면 그 청크 전부가 롤백된다.
+
+**해결**: `PaymentService.chargeForPeriod` 를 `Propagation.REQUIRES_NEW` 로 — 건별 독립 커밋.
+스텝은 `faultTolerant().skip(Exception.class)` 로 실패해도 다음 건으로 넘어간다. 실패한 구독만
+`PAST_DUE` 가 되고 나머지는 정상 결제된다.
+
+### 수치
+
+로컬 단일 인스턴스, PRO 구독자 50명, `POST /api/admin/billing/run` 1회.
+
+| 항목 | 값 |
+|---|---|
+| 배치 50건 처리 (건별 tx + 게이트웨이 + 아웃박스) | ~1.1s |
+| 아웃박스 릴레이 드레인 (poll 2s, batch 100) | 50건 < 4s |
+| 동시 결제 8스레드 → payments | 1건 |
+
+재현/검증 코드: `backend/src/test/java/com/studyroom/subscription/`
+(`PaymentServiceTest`·`PaymentFailureTest`, `PaymentIdempotencyConcurrencyTest`,
+`OutboxRelayTest`, `BillingJobTest`, `SubscriptionEventConsumerTest`,
+`SubscriptionBenefitTest`·`SubscriptionHoldBenefitTest`).
+
+### 도메인 연계 — PRO 홀딩 연장
+
+`HoldService` 는 `HoldTtlPolicy` 포트만 알고, 구독 도메인이 `SubscriptionBenefit` 으로 구현한다.
+ACTIVE PRO 회원은 홀딩 유예가 20분(기본 10분). 예약이 구독을 직접 import 하지 않는다.

@@ -202,6 +202,28 @@ ADMIN이 추첨한다. 추첨은 **재현 가능**하다 — `SecureRandom` 시�
 - 재현/검증: `backend/src/test/java/com/studyroom/ranking/`
 - 프론트: `/ranking` — 전체/오늘 탭, 상위 20(메달), 내 순위 카드; 내 예약에 "퇴실" 버튼
 
+## 정기 구독권 (로드맵 8단계)
+
+PRO 구독료를 **Spring Batch**로 매일 정기 결제한다. 결제·상태변경·이벤트 발행을 **트랜잭션
+아웃박스**로 묶어, 6·7단계가 남긴 "발행 자체 유실" 틈을 메운다.
+
+```
+매일 자정 / ADMIN 수동 ─▶ Spring Batch dailyBillingJob (건별 REQUIRES_NEW 커밋)
+  한 트랜잭션: payments 저장 + subscription renew/PAST_DUE + outbox_events 저장
+OutboxRelay (2초 폴, FOR UPDATE SKIP LOCKED) ─▶ Kafka subscription-events ─▶ published_at
+SubscriptionEventConsumer ─▶ 6단계 알림 파이프라인 (notifications + WebSocket 푸시)
+```
+
+- 멱등: `payments.idempotency_key`(`sub:{id}:{yyyy-MM}`) UNIQUE → 배치 재실행·중복 스케줄에도 1건
+  (동시성 테스트: 8스레드 → 결제 1건)
+- 유실 방지: 커밋됐다면 이벤트는 outbox에 있고, 브로커가 죽어도 릴레이가 재시도
+- 배치 내결함성: `REQUIRES_NEW` + `faultTolerant().skip()` → 실패 건만 PAST_DUE
+- 도메인 연계: ACTIVE PRO 회원은 홀딩 유예 20분 (기본 10분) — `HoldTtlPolicy` 포트
+- 수치: 배치 50건 ~1.1s, 아웃박스 드레인 < 4s
+- API: `GET/POST /api/subscriptions`, `/cancel`, `/me/payments`, `POST /api/admin/billing/run`(ADMIN)
+- 재현/검증: `backend/src/test/java/com/studyroom/subscription/`
+- 프론트: `/subscription` — 플랜 카드, PRO 구독/해지, 결제 이력, ADMIN 배치 실행
+
 ## 다음 단계
 
-로드맵 8단계(구독/배치): Spring Batch 정기 결제, 트랜잭션 아웃박스 패턴, 멱등키.
+로드맵 9단계(인프라/CI-CD): AWS EC2+RDS 배포, GitHub Actions 파이프라인.

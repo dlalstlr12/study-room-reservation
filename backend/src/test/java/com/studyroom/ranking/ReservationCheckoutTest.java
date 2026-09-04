@@ -37,7 +37,7 @@ class ReservationCheckoutTest extends RankingScenarioSupport {
 
 		await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
 				assertThat(rankingRepository.scoreOf(RankingScope.ALL, null, memberId))
-						.isGreaterThanOrEqualTo(89).isLessThanOrEqualTo(91)); // ~90분
+						.isEqualTo(120)); // 예약 구간 90+30분
 	}
 
 	@Test

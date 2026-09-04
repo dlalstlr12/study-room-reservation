@@ -179,6 +179,29 @@ ADMIN이 추첨한다. 추첨은 **재현 가능**하다 — `SecureRandom` 시�
 - 재현/검증: `backend/src/test/java/com/studyroom/notification/`
 - 프론트: topbar 알림 벨(안읽음 배지·실시간 수신), `/notifications` 이력 페이지, ADMIN 전체 공지 폼
 
+## 실시간 랭킹 (로드맵 7단계)
+
+퇴실한 이용시간을 회원별로 누적해 순위를 낸다. 갱신·조회 모두 **Redis Sorted Set** 이라
+이력이 쌓여도 O(log N).
+
+```
+퇴실(수동 버튼 / endAt 지난 예약 자동) ─(AFTER_COMMIT)─▶ Kafka usage-events ─▶ 랭킹 워커
+   ├─ usage_logs 저장 (reservation_id UNIQUE = 멱등)
+   ├─ ZINCRBY ranking:all
+   └─ ZINCRBY ranking:daily:{yyyy-MM-dd} (TTL 48h → 자정 리셋 배치 불필요)
+조회: GET /api/rankings ─▶ ZREVRANGE (DB 집계 없음)
+```
+
+- 원자성: `ZINCRBY` 단일 명령 → 동시 갱신에도 정확 (동시성 테스트: 10스레드×20회 → 정확히 200)
+- 멱등: `usage_logs.reservation_id` UNIQUE → at-least-once 재처리에도 점수 1회만
+- 복구: Redis 유실 시 `POST /api/rankings/rebuild`(ADMIN) 가 `usage_logs` 합계로 재구축
+- 수치: `GET /api/rankings` p50 12ms / `/me` p50 4ms (순수 Redis). DB 집계는 이력 수에 비례
+- API: `GET /api/rankings?scope=all|daily`, `/me`, `POST /rebuild`(ADMIN),
+  `POST /api/reservations/{id}/checkout`
+- 두 이벤트 스트림(`notification-events` / `usage-events`)을 리스너별 컨테이너 팩토리로 타입 분리
+- 재현/검증: `backend/src/test/java/com/studyroom/ranking/`
+- 프론트: `/ranking` — 전체/오늘 탭, 상위 20(메달), 내 순위 카드; 내 예약에 "퇴실" 버튼
+
 ## 다음 단계
 
-로드맵 7단계(랭킹): 퇴실 이벤트 → Redis Sorted Set 누적 이용시간 랭킹, 일간/전체 분리.
+로드맵 8단계(구독/배치): Spring Batch 정기 결제, 트랜잭션 아웃박스 패턴, 멱등키.

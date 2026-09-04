@@ -96,10 +96,12 @@ public class Reservation extends BaseTimeEntity {
 		this.checkedOutAt = checkOutAt;
 	}
 
-	/** 실제 이용 분: {@code startAt} 부터 (퇴실 시각과 예약 종료 중 이른 쪽)까지. 음수면 0. */
+	/**
+	 * 이용 분 = 예약 구간 전체({@code endAt - startAt}). 퇴실은 "이 예약을 이용했다"는 확정이고,
+	 * 이용시간은 예약한 만큼으로 집계한다. (조기 퇴실도 예약 구간으로 크레딧 — 어뷰징 논의는
+	 * docs/troubleshooting.md)
+	 */
 	public int usedMinutes() {
-		LocalDateTime end = (checkedOutAt != null && checkedOutAt.isBefore(endAt)) ? checkedOutAt : endAt;
-		long minutes = Duration.between(startAt, end).toMinutes();
-		return (int) Math.max(0, minutes);
+		return (int) Math.max(0, Duration.between(startAt, endAt).toMinutes());
 	}
 }

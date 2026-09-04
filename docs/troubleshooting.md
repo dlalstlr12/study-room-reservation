@@ -399,3 +399,77 @@ Testcontainers Kafka는 싱글턴이라 여러 `@SpringBootTest` 컨텍스트가
 재현/검증 코드: `backend/src/test/java/com/studyroom/notification/`
 (`NotificationConsumerTest` 멱등, `NotificationRetryDltTest` DLT, `LotteryNotificationFlowTest` E2E),
 부하 스크립트 `backend/load-test/notification-announce.js`.
+
+---
+
+## 7단계 — 실시간 랭킹 (최장 이용 시간)
+
+퇴실한 이용시간을 회원별로 누적해 순위를 낸다.
+
+```
+퇴실(수동 버튼 / 백스톱 스케줄러) ─(AFTER_COMMIT)─▶ Kafka: usage-events ─▶ 랭킹 워커
+                                                                          ├─ usage_logs 저장 (reservation_id UNIQUE = 멱등)
+                                                                          ├─ ZINCRBY ranking:all
+                                                                          └─ ZINCRBY ranking:daily:{yyyy-MM-dd} (TTL 48h)
+조회: GET /api/rankings ─▶ ZREVRANGE (DB 집계 없음)
+```
+
+### 문제 1 — 랭킹을 DB로 뽑으면 조회가 데이터에 비례한다
+
+```sql
+SELECT member_id, SUM(minutes) AS total FROM usage_logs
+GROUP BY member_id ORDER BY total DESC LIMIT 20;
+```
+
+매 조회가 `usage_logs` 전체를 훑어 그룹·정렬한다. 커버링 인덱스로도 GROUP BY 집계는 행 수에
+비례하고, "상위 20"이라는 상한이 스캔량을 줄여주지 못한다. 이용 이력이 쌓일수록 느려진다.
+
+**해결 — Redis Sorted Set**: 갱신은 `ZINCRBY` O(log N), 상위권 조회는 `ZREVRANGE` O(log N + M).
+DB(`usage_logs`)는 원천·감사용으로만 남기고, 읽기 경로에서 뺐다.
+
+| 엔드포인트 | 하는 일 | p50 / p95 |
+|---|---|---|
+| `GET /api/rankings?scope=all&limit=20` | `ZREVRANGE` + 이름 20개 `IN` 조회 | 12ms / 18ms |
+| `GET /api/rankings/me` | `ZREVRANK` + `ZSCORE` (순수 Redis) | 4ms / 7ms |
+
+### 문제 2 — 동시에 퇴실이 겹치면 점수가 유실될 수 있다
+
+여러 워커 인스턴스(또는 재시도)가 같은 회원의 점수를 동시에 올릴 때, `GET score → +N → SET`
+방식이었다면 마지막 쓰기만 남아 증가분이 사라진다.
+
+**해결 — `ZINCRBY` 는 Redis 단일 명령이라 그 자체가 원자적**. read-modify-write가 아니므로 경쟁해도
+정확하다. `RankingConcurrencyTest`: 10 스레드 × 각 20회 `add` → 최종 점수 **정확히 200**.
+
+### 문제 3 — at-least-once 재처리 → 점수 2배
+
+Kafka는 최소 한 번 전달이라 컨슈머 리밸런스·재시도로 같은 이용 이벤트가 두 번 올 수 있다.
+
+**해결 — `usage_logs.reservation_id` UNIQUE**: 워커는 저장에 성공한 경우에만 `ZINCRBY` 한다.
+두 번째 처리는 저장이 실패(또는 `existsByReservationId` true)해 집계를 건너뛴다.
+`UsageEventConsumerTest`: 같은 `reservationId` 3번 발행 → 점수 1회만 반영.
+
+### 문제 4 — Redis가 비면 랭킹이 사라진다
+
+Sorted Set은 캐시일 뿐이다. Redis 재시작·플러시로 순위가 통째로 날아갈 수 있다.
+
+**해결 — `usage_logs` 가 진실의 원천**: `POST /api/rankings/rebuild`(ADMIN) 가 `SUM(minutes)
+GROUP BY member_id` 로 전체 + 오늘 일간 Sorted Set을 다시 만든다. 일간 키는 `ranking:daily:{날짜}`
++ TTL 48h 라 **자정 리셋 배치가 필요 없다** — 어제 키는 알아서 사라진다.
+
+### 설계 메모 — 이용 분 = 예약 구간
+
+수동 퇴실도 예약한 구간(`endAt - startAt`) 전체를 크레딧한다. "퇴실 = 이 예약을 썼다"는 확정으로
+보고 이용시간은 예약한 만큼 집계한다. 데모 편의상 예약 시작 전 퇴실도 허용 — 운영에선 `startAt`
+도래 후로 제한하거나 실제 경과 시간으로 집계할 여지가 있다(어뷰징 방지). 자동 백스톱
+스케줄러(`endAt` 지난 RESERVED → COMPLETED)가 정상 경로다.
+
+### 타입이 다른 두 이벤트 스트림
+
+`notification-events`(6단계)와 `usage-events`가 같은 브로커를 쓴다. 기본 컨슈머는
+`NotificationMessage` 를 기본 역직렬화 타입으로 갖고 있어, 랭킹 워커는 `UsageEventMessage` 를 명시한
+전용 `ConcurrentKafkaListenerContainerFactory`(`RankingKafkaConfig`)로 분리했다.
+
+재현/검증 코드: `backend/src/test/java/com/studyroom/ranking/`
+(`RankingRepositoryTest`, `RankingConcurrencyTest` 원자성, `UsageEventConsumerTest` 멱등,
+`ReservationCheckoutTest`/`ReservationCheckoutSchedulerTest` 퇴실 전이),
+부하 스크립트 `backend/load-test/ranking-read.js`.

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { confirmHold, listMyHolds, releaseHold } from '../api/holds'
-import { cancelReservation, listMyReservations } from '../api/reservations'
+import { cancelReservation, checkoutReservation, listMyReservations } from '../api/reservations'
 import { ReservationStatusBadge } from '../components/StatusBadge'
 import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Select, Spinner } from '../components/ui'
@@ -53,6 +53,16 @@ export function ReservationsPage() {
       reservations.reload()
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : '취소에 실패했습니다.')
+    }
+  }
+
+  const handleCheckout = async (r: Reservation) => {
+    try {
+      await checkoutReservation(r.id)
+      toast.success('퇴실했습니다. 이용시간이 랭킹에 반영됩니다.')
+      reservations.reload()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : '퇴실에 실패했습니다.')
     }
   }
 
@@ -160,9 +170,12 @@ export function ReservationsPage() {
                     </td>
                     <td className="table__actions">
                       {r.status === 'RESERVED' && (
-                        <Button variant="danger" onClick={() => handleCancel(r)}>
-                          취소
-                        </Button>
+                        <>
+                          <Button onClick={() => handleCheckout(r)}>퇴실</Button>
+                          <Button variant="danger" onClick={() => handleCancel(r)}>
+                            취소
+                          </Button>
+                        </>
                       )}
                     </td>
                   </tr>

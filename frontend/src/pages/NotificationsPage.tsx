@@ -12,6 +12,8 @@ const TYPE_LABEL: Record<AppNotification['type'], string> = {
   LOTTERY_WON: '당첨',
   LOTTERY_LOST: '추첨 결과',
   ANNOUNCEMENT: '공지',
+  SUBSCRIPTION_PAID: '결제',
+  SUBSCRIPTION_PAYMENT_FAILED: '결제 실패',
 }
 
 export function NotificationsPage() {

@@ -1494,3 +1494,67 @@ a:hover {
   font-size: 0.78rem;
   color: var(--ink-soft);
 }
+
+/* ============================================================
+   Subscription (로드맵 8단계) — 요금제 카드
+   ============================================================ */
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.plan__badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.plan__name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.plan__name--pro {
+  color: var(--sign);
+}
+
+.plan__name--free {
+  color: var(--ink-soft);
+}
+
+.plan__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+  margin: 0;
+}
+
+.plan__meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.plan__meta dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.plan__meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.plan__actions {
+  display: flex;
+  gap: 0.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--rule);
+}

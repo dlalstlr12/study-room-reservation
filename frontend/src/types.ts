@@ -95,7 +95,12 @@ export interface LotteryResultEvent {
   drawnAt: string
 }
 
-export type NotificationType = 'LOTTERY_WON' | 'LOTTERY_LOST' | 'ANNOUNCEMENT'
+export type NotificationType =
+  | 'LOTTERY_WON'
+  | 'LOTTERY_LOST'
+  | 'ANNOUNCEMENT'
+  | 'SUBSCRIPTION_PAID'
+  | 'SUBSCRIPTION_PAYMENT_FAILED'
 export type NotificationStatus = 'SENT' | 'FAILED'
 
 /** 알림 한 건. 목록 조회와 WebSocket 푸시(`/topic/notifications/{memberId}`)가 같은 모양이다. */
@@ -108,6 +113,27 @@ export interface AppNotification {
   status: NotificationStatus
   read: boolean
   createdAt: string
+}
+
+export type SubscriptionPlan = 'FREE' | 'PRO'
+export type SubscriptionStatus = 'ACTIVE' | 'PAST_DUE' | 'CANCELLED'
+export type PaymentStatus = 'SUCCEEDED' | 'FAILED'
+
+export interface Subscription {
+  plan: SubscriptionPlan
+  /** 구독한 적 없으면 null */
+  status: SubscriptionStatus | null
+  priceKrw: number
+  nextBillingAt: string | null
+  startedAt: string | null
+}
+
+export interface Payment {
+  id: number
+  amountKrw: number
+  status: PaymentStatus
+  failureReason: string | null
+  paidAt: string
 }
 
 export type RankingScope = 'all' | 'daily'

@@ -47,5 +47,7 @@ public abstract class IntegrationTest {
 		registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 		registry.add("spring.kafka.bootstrap-servers",
 				() -> KAFKA.getBootstrapServers().replace("PLAINTEXT://", ""));
+		// 아웃박스 릴레이 스케줄러는 테스트에서 끈다 — 테스트가 relay()를 직접 호출해 타이밍을 통제한다.
+		registry.add("subscription.outbox.scheduler-enabled", () -> "false");
 	}
 }

@@ -13,6 +13,7 @@ import com.studyroom.reservation.repository.ReservationRepository;
 import com.studyroom.room.entity.Room;
 import com.studyroom.room.service.RoomService;
 import com.studyroom.member.service.MemberService;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -37,20 +38,20 @@ public class HoldService {
 	private final RoomService roomService;
 	private final MemberService memberService;
 	private final TransactionTemplate txTemplate;
-	private final ReservationHoldProperties holdProperties;
+	private final HoldTtlPolicy holdTtlPolicy;
 	private final RoomChangeNotifier roomChangeNotifier;
 	private final DistributedLock roomLock;
 
 	public HoldService(HoldRepository holdRepository, ReservationRepository reservationRepository,
 			RoomService roomService, MemberService memberService, TransactionTemplate txTemplate,
-			ReservationHoldProperties holdProperties, RoomChangeNotifier roomChangeNotifier,
+			HoldTtlPolicy holdTtlPolicy, RoomChangeNotifier roomChangeNotifier,
 			RedissonClient redissonClient) {
 		this.holdRepository = holdRepository;
 		this.reservationRepository = reservationRepository;
 		this.roomService = roomService;
 		this.memberService = memberService;
 		this.txTemplate = txTemplate;
-		this.holdProperties = holdProperties;
+		this.holdTtlPolicy = holdTtlPolicy;
 		this.roomChangeNotifier = roomChangeNotifier;
 		this.roomLock = new RedissonDistributedLock(redissonClient);
 	}
@@ -68,9 +69,10 @@ public class HoldService {
 			if (holdClash) {
 				throw new BusinessException(ErrorCode.RESERVATION_HOLD_CONFLICT);
 			}
+			Duration ttl = holdTtlPolicy.ttlFor(memberId);
 			Hold created = Hold.create(room.getId(), memberId, request.startAt(), request.endAt(),
-					LocalDateTime.now().plus(holdProperties.ttl()));
-			holdRepository.save(created, holdProperties.ttl());
+					LocalDateTime.now().plus(ttl));
+			holdRepository.save(created, ttl);
 			return created;
 		});
 		roomChangeNotifier.roomChanged(room.getId(), memberId);

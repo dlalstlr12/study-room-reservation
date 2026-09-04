@@ -8,5 +8,9 @@ public enum NotificationType {
 	/** 추첨 미당첨 */
 	LOTTERY_LOST,
 	/** 전체 공지 (ADMIN 발송) */
-	ANNOUNCEMENT
+	ANNOUNCEMENT,
+	/** 구독 정기결제 성공 */
+	SUBSCRIPTION_PAID,
+	/** 구독 정기결제 실패 (PAST_DUE) */
+	SUBSCRIPTION_PAYMENT_FAILED
 }

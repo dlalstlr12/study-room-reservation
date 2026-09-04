@@ -181,7 +181,7 @@ erDiagram
 - [x] **5단계 — 이벤트 추첨**: 대상(현재 이용중 / 전체) 중 ADMIN 추첨 + 시드 기반 재현 가능한 추첨(Redisson 락·상태 가드) + `@TransactionalEventListener` → `/topic/lottery` 발표
 - [x] **6단계 — 메시징/알림**: Kafka 도입, 추첨/공지 → 알림 워커(`@KafkaListener`), 멱등(`dedup_key`), `@RetryableTopic` 재시도 + DLT, DB 이력 + WebSocket 푸시
 - [x] **7단계 — 랭킹**: 퇴실(수동+백스톱) → Kafka `usage-events` → 랭킹 워커가 `usage_logs`(멱등) + Redis Sorted Set `ZINCRBY`(전체/일간), `ZREVRANGE` 조회, ADMIN 재구축
-- [ ] **8단계 — 구독/배치**: Spring Batch 정기결제, 아웃박스 패턴, 멱등성 처리
+- [x] **8단계 — 구독/배치**: Spring Batch 일일 정기결제, 트랜잭션 아웃박스(`outbox_events` + `SKIP LOCKED` 릴레이 → Kafka), `idempotency_key` UNIQUE 중복결제 방지, PRO 홀딩 연장(도메인 연계)
 - [ ] **9단계 — 인프라/CI-CD**: AWS 배포, GitHub Actions 파이프라인
 - [ ] **10단계 — 부하테스트 & 문서 정리**: 성능 비교 수치화, README/블로그 최종 정리
 

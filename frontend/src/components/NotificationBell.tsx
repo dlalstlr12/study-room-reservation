@@ -8,6 +8,8 @@ const TYPE_ICON: Record<AppNotification['type'], string> = {
   LOTTERY_WON: '🎉',
   LOTTERY_LOST: '🎲',
   ANNOUNCEMENT: '📢',
+  SUBSCRIPTION_PAID: '💳',
+  SUBSCRIPTION_PAYMENT_FAILED: '⚠️',
 }
 
 export function NotificationBell() {

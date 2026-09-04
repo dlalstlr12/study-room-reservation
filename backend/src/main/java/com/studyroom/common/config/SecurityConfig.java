@@ -61,6 +61,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.DELETE, "/api/lottery/events/*").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.POST, "/api/notifications/announcements").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.POST, "/api/rankings/rebuild").hasRole("ADMIN")
+						.requestMatchers("/api/admin/**").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();

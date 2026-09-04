@@ -7,6 +7,7 @@ import { LotteryPage } from './pages/LotteryPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { RankingPage } from './pages/RankingPage'
+import { SubscriptionPage } from './pages/SubscriptionPage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { RoomDetailPage } from './pages/RoomDetailPage'
 import { RoomsPage } from './pages/RoomsPage'
@@ -48,6 +49,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <RankingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="subscription"
+          element={
+            <ProtectedRoute>
+              <SubscriptionPage />
             </ProtectedRoute>
           }
         />

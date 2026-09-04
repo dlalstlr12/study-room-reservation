@@ -15,6 +15,7 @@ const NAV = [
   { to: '/lottery', label: '이벤트 추첨', end: false },
   { to: '/notifications', label: '알림', end: false },
   { to: '/ranking', label: '랭킹', end: false },
+  { to: '/subscription', label: '구독', end: false },
 ]
 
 export function AppLayout() {
@@ -56,7 +57,7 @@ export function AppLayout() {
           </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">STEP 7 · RANKING</span>
+            <span className="sidebar__sub">STEP 8 · BILLING</span>
           </div>
         </div>
         <nav className="sidebar__nav">

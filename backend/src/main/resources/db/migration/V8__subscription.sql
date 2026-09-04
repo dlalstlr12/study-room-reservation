@@ -41,9 +41,10 @@ CREATE TABLE outbox_events (
     aggregate_type VARCHAR(40) NOT NULL,   -- SUBSCRIPTION
     aggregate_id   BIGINT      NOT NULL,
     event_type     VARCHAR(40) NOT NULL,   -- PAYMENT_SUCCEEDED | PAYMENT_FAILED
-    payload        TEXT        NOT NULL,   -- JSON (SubscriptionEventMessage)
-    created_at     DATETIME(6) NOT NULL,
+    payload        VARCHAR(2000) NOT NULL, -- JSON (SubscriptionEventMessage)
     published_at   DATETIME(6) NULL,
+    created_at     DATETIME(6) NOT NULL,
+    updated_at     DATETIME(6) NOT NULL,
     PRIMARY KEY (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 

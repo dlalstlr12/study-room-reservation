@@ -6,7 +6,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -36,8 +35,7 @@ public class OutboxEvent extends BaseTimeEntity {
 	@Column(name = "event_type", nullable = false, length = 40)
 	private String eventType;
 
-	@Lob
-	@Column(nullable = false)
+	@Column(nullable = false, length = 2000)
 	private String payload;
 
 	private LocalDateTime publishedAt;

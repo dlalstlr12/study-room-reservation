@@ -43,6 +43,8 @@ reservation:
   hold:
     ttl: PT10M        # 홀딩 유지 시간 (이 안에 확정 안 하면 Redis가 자동 삭제)
     sweep-ms: 60000   # 백스톱 스윕 주기 (keyspace 만료 이벤트를 놓쳤을 때 정합성 보정)
+  checkout:
+    sweep-ms: 60000   # 자동 퇴실 스윕 주기 (endAt 지난 RESERVED 예약을 COMPLETED로)
 
 # 비동기 알림 (로드맵 6단계) — 배경·수치: docs/troubleshooting.md
 notification:

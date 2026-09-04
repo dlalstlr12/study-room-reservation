@@ -67,4 +67,12 @@ public class ReservationController {
 			@PathVariable Long reservationId) {
 		return reservationService.cancel(reservationId, principal.memberId());
 	}
+
+	@Operation(summary = "퇴실", description = "본인의 RESERVED 예약을 이용 완료 처리. 이용 시간이 랭킹에 집계된다.")
+	@PostMapping("/{reservationId}/checkout")
+	public ReservationResponse checkout(
+			@AuthenticationPrincipal MemberPrincipal principal,
+			@PathVariable Long reservationId) {
+		return reservationService.checkout(reservationId, principal.memberId());
+	}
 }

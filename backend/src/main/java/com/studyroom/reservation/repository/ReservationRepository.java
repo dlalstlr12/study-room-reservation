@@ -68,4 +68,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	@EntityGraph(attributePaths = {"room", "member"})
 	@Query("select r from Reservation r where r.id = :id")
 	Optional<Reservation> findDetailById(@Param("id") Long id);
+
+	/** 종료 시각이 지났는데 아직 RESERVED 인 예약 (자동 퇴실 백스톱용). */
+	List<Reservation> findByStatusAndEndAtLessThanEqual(ReservationStatus status, LocalDateTime at);
 }

@@ -71,3 +71,13 @@ export function dayTrackSpan(startIso: string, endIso: string): { left: number; 
   const right = clamp(((hours(endIso) - DAY_TRACK.start) / span) * 100)
   return { left, width: Math.max(right - left, 0) }
 }
+
+/** 240 → "4시간", 90 → "1시간 30분", 25 → "25분", 0 → "0분" */
+export function formatMinutes(minutes: number): string {
+  if (minutes <= 0) return '0분'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}분`
+  if (m === 0) return `${h}시간`
+  return `${h}시간 ${m}분`
+}

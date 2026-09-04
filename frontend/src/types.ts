@@ -110,6 +110,21 @@ export interface AppNotification {
   createdAt: string
 }
 
+export type RankingScope = 'all' | 'daily'
+
+export interface RankingEntry {
+  rank: number
+  memberId: number
+  memberName: string
+  minutes: number
+}
+
+export interface MyRank {
+  /** 아직 랭크에 없으면 null */
+  rank: number | null
+  minutes: number
+}
+
 export interface TokenResponse {
   accessToken: string
   refreshToken: string

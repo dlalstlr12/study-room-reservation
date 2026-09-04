@@ -8,6 +8,7 @@ import com.studyroom.common.lock.ReservationLockProperties;
 import com.studyroom.common.realtime.RoomChangeNotifier;
 import com.studyroom.member.entity.Member;
 import com.studyroom.member.service.MemberService;
+import com.studyroom.reservation.ReservationCompletedEvent;
 import com.studyroom.reservation.SlotValidator;
 import com.studyroom.reservation.dto.ReservationCreateRequest;
 import com.studyroom.reservation.dto.ReservationResponse;
@@ -17,7 +18,9 @@ import com.studyroom.reservation.repository.ReservationRepository;
 import com.studyroom.room.entity.Room;
 import com.studyroom.room.repository.RoomRepository;
 import com.studyroom.room.service.RoomService;
+import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -33,11 +36,12 @@ public class ReservationService {
 	private final DistributedLock distributedLock;
 	private final ReservationLockProperties lockProperties;
 	private final RoomChangeNotifier roomChangeNotifier;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public ReservationService(ReservationRepository reservationRepository, MemberService memberService,
 			RoomService roomService, RoomRepository roomRepository, TransactionTemplate txTemplate,
 			DistributedLock distributedLock, ReservationLockProperties lockProperties,
-			RoomChangeNotifier roomChangeNotifier) {
+			RoomChangeNotifier roomChangeNotifier, ApplicationEventPublisher eventPublisher) {
 		this.reservationRepository = reservationRepository;
 		this.memberService = memberService;
 		this.roomService = roomService;
@@ -46,6 +50,7 @@ public class ReservationService {
 		this.distributedLock = distributedLock;
 		this.lockProperties = lockProperties;
 		this.roomChangeNotifier = roomChangeNotifier;
+		this.eventPublisher = eventPublisher;
 	}
 
 	/**
@@ -111,5 +116,47 @@ public class ReservationService {
 		reservation.cancel();
 		roomChangeNotifier.roomChanged(reservation.getRoom().getId(), requesterId);
 		return ReservationResponse.from(reservation);
+	}
+
+	/**
+	 * 수동 퇴실. 본인 예약만. 실제 이용 시간은 {@code startAt} ~ 지금.
+	 * 커밋 후 {@link ReservationCompletedEvent} 로 랭킹 집계가 이어진다.
+	 */
+	@Transactional
+	public ReservationResponse checkout(Long reservationId, Long requesterId) {
+		Reservation reservation = reservationRepository.findDetailById(reservationId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_NOT_FOUND));
+		if (!reservation.isOwnedBy(requesterId)) {
+			throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
+		}
+		reservation.complete(LocalDateTime.now());
+		publishCompleted(reservation);
+		roomChangeNotifier.roomChanged(reservation.getRoom().getId(), requesterId);
+		return ReservationResponse.from(reservation);
+	}
+
+	/**
+	 * 백스톱 스케줄러 전용. {@code endAt} 이 지났는데 아직 RESERVED 인 예약을 완료 처리한다.
+	 * 이미 완료·취소됐으면 조용히 넘어간다(수동 퇴실과의 경쟁).
+	 */
+	@Transactional
+	public void autoComplete(Long reservationId) {
+		Reservation reservation = reservationRepository.findDetailById(reservationId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_NOT_FOUND));
+		if (reservation.getStatus() != com.studyroom.reservation.entity.ReservationStatus.RESERVED) {
+			return;
+		}
+		reservation.complete(reservation.getEndAt());
+		publishCompleted(reservation);
+		roomChangeNotifier.roomChanged(reservation.getRoom().getId(), null);
+	}
+
+	private void publishCompleted(Reservation reservation) {
+		eventPublisher.publishEvent(new ReservationCompletedEvent(
+				reservation.getId(),
+				reservation.getMember().getId(),
+				reservation.getRoom().getId(),
+				reservation.usedMinutes(),
+				reservation.getCheckedOutAt()));
 	}
 }

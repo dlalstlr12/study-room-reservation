@@ -23,3 +23,7 @@ export function getReservation(id: number): Promise<Reservation> {
 export function cancelReservation(id: number): Promise<Reservation> {
   return apiFetch<Reservation>(`/api/reservations/${id}/cancel`, { method: 'POST' })
 }
+
+export function checkoutReservation(id: number): Promise<Reservation> {
+  return apiFetch<Reservation>(`/api/reservations/${id}/checkout`, { method: 'POST' })
+}

@@ -1380,3 +1380,117 @@ a:hover {
   font-size: 0.82rem;
   color: var(--ink-soft);
 }
+
+/* ============================================================
+   Ranking (로드맵 7단계) — 게시판 순위표
+   ============================================================ */
+
+.rank-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  width: fit-content;
+  overflow: hidden;
+}
+
+.rank-tab {
+  padding: 0.4rem 1.1rem;
+  border: none;
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.rank-tab.is-active {
+  background: var(--sign);
+  color: #fff;
+}
+
+.rank-me {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--sign);
+  border-radius: var(--r);
+}
+
+.rank-me__label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.rank-me__value {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.rank-me__minutes {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 0.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.rank-row__rank {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.rank-row--top .rank-row__rank {
+  font-size: 1.2rem;
+}
+
+.rank-row--1 {
+  background: rgba(178, 106, 0, 0.06);
+}
+
+.rank-row__name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rank-row__minutes {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.rank-row--me {
+  box-shadow: inset 3px 0 0 var(--sign);
+}
+
+.rank-row--me .rank-row__name::after {
+  content: ' (나)';
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}

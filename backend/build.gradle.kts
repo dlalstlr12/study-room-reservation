@@ -50,6 +50,9 @@ dependencies {
 	// 메시징 (로드맵 6단계 — 비동기 알림)
 	implementation("org.springframework.kafka:spring-kafka")
 
+	// 배치 (로드맵 8단계 — 정기 결제)
+	implementation("org.springframework.boot:spring-boot-starter-batch")
+
 	// API 문서화
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
 
@@ -65,6 +68,7 @@ dependencies {
 	testImplementation("org.testcontainers:mysql:1.20.1")
 	testImplementation("org.testcontainers:kafka:1.20.1")
 	testImplementation("org.springframework.kafka:spring-kafka-test")
+	testImplementation("org.springframework.batch:spring-batch-test")
 	testImplementation("org.awaitility:awaitility")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

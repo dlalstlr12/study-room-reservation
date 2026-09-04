@@ -8,6 +8,12 @@ spring:
     # 캐시 전/후 비교 시 none 으로 오버라이드해서 띄운다.
     type: redis
 
+  batch:
+    jdbc:
+      initialize-schema: never   # Flyway(V7)가 메타데이터 스키마를 관리
+    job:
+      enabled: false             # 부팅 시 자동 실행 금지 — 스케줄러/수동 트리거로만
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -45,6 +51,19 @@ reservation:
     sweep-ms: 60000   # 백스톱 스윕 주기 (keyspace 만료 이벤트를 놓쳤을 때 정합성 보정)
   checkout:
     sweep-ms: 60000   # 자동 퇴실 스윕 주기 (endAt 지난 RESERVED 예약을 COMPLETED로)
+
+# 정기 구독권 (로드맵 8단계) — Spring Batch · 트랜잭션 아웃박스 · 멱등
+subscription:
+  plan:
+    pro-price-krw: 9900
+  benefit:
+    pro-hold-ttl: PT20M      # PRO 구독자 홀딩 유예 (FREE는 reservation.hold.ttl)
+  payment:
+    failure-rate: 0.0        # 결제 게이트웨이 장애 시뮬레이션 (재시도·PAST_DUE 관찰)
+  outbox:
+    poll-ms: 2000            # 아웃박스 릴레이 폴 주기
+  billing:
+    cron: "0 0 0 * * *"      # 매일 자정 정기결제 배치
 
 # 비동기 알림 (로드맵 6단계) — 배경·수치: docs/troubleshooting.md
 notification:

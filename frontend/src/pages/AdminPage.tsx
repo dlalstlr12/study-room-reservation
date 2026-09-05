@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { Fragment, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import {
   createLotteryEvent,
@@ -9,11 +9,13 @@ import {
 import type { LotteryEventCreateBody } from '../api/lottery'
 import { sendAnnouncement } from '../api/notifications'
 import { rebuildRankings } from '../api/rankings'
+import { createRoom, deleteRoom, listRooms, updateRoom } from '../api/rooms'
+import type { RoomCreateBody } from '../api/rooms'
 import { runBilling } from '../api/subscriptions'
 import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Field, Input, Select, Spinner, Textarea } from '../components/ui'
 import { useApi } from '../hooks/useApi'
-import type { LotteryAudience, LotteryEvent } from '../types'
+import type { LotteryAudience, LotteryEvent, Room } from '../types'
 
 const AUDIENCE_LABEL: Record<LotteryAudience, string> = {
   CURRENT_USERS: '현재 이용중인 회원',
@@ -30,11 +32,186 @@ export function AdminPage() {
         </p>
       </div>
 
+      <RoomAdminCard />
       <LotteryAdminCard />
       <AnnouncementCard />
       <RankingAdminCard />
       <BillingAdminCard />
     </div>
+  )
+}
+
+function RoomAdminCard() {
+  const toast = useToast()
+  const rooms = useApi<Room[]>(() => listRooms(), [])
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+  const handleCreate = async (body: RoomCreateBody) => {
+    await createRoom(body)
+    toast.success('룸을 추가했습니다.')
+    setCreating(false)
+    rooms.reload()
+  }
+
+  const handleUpdate = async (id: number, body: RoomCreateBody) => {
+    await updateRoom(id, body)
+    toast.success('룸을 수정했습니다.')
+    setEditingId(null)
+    rooms.reload()
+  }
+
+  const handleDelete = async (room: Room) => {
+    if (!window.confirm(`"${room.name}" 룸을 삭제할까요?`)) return
+    try {
+      await deleteRoom(room.id)
+      toast.success('룸을 삭제했습니다.')
+      rooms.reload()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : '삭제에 실패했습니다.')
+    }
+  }
+
+  return (
+    <Card
+      title="룸 관리"
+      actions={
+        <Button
+          variant={creating ? 'ghost' : 'secondary'}
+          onClick={() => {
+            setEditingId(null)
+            setCreating((v) => !v)
+          }}
+        >
+          {creating ? '닫기' : '새 룸'}
+        </Button>
+      }
+    >
+      {creating && (
+        <>
+          <RoomForm submitLabel="추가" onSubmit={handleCreate} />
+          <div className="admin-divider" />
+        </>
+      )}
+
+      {rooms.loading && <Spinner />}
+      {rooms.data && rooms.data.length === 0 && <EmptyState>등록된 룸이 없습니다.</EmptyState>}
+      {rooms.data && rooms.data.length > 0 && (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>정원</th>
+              <th>설명</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rooms.data.map((room) => (
+              <Fragment key={room.id}>
+                <tr>
+                  <td>{room.name}</td>
+                  <td className="mono-sm">{room.capacity}명</td>
+                  <td className="muted">{room.description ?? '-'}</td>
+                  <td className="table__actions">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setEditingId(editingId === room.id ? null : room.id)}
+                    >
+                      {editingId === room.id ? '취소' : '수정'}
+                    </Button>
+                    <Button variant="danger" onClick={() => handleDelete(room)}>
+                      삭제
+                    </Button>
+                  </td>
+                </tr>
+                {editingId === room.id && (
+                  <tr>
+                    <td colSpan={4}>
+                      <RoomForm
+                        initial={room}
+                        submitLabel="저장"
+                        onSubmit={(body) => handleUpdate(room.id, body)}
+                        onCancel={() => setEditingId(null)}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  )
+}
+
+interface RoomFormProps {
+  initial?: Room
+  submitLabel: string
+  onSubmit: (body: RoomCreateBody) => Promise<void>
+  onCancel?: () => void
+}
+
+function RoomForm({ initial, submitLabel, onSubmit, onCancel }: RoomFormProps) {
+  const toast = useToast()
+  const [name, setName] = useState(initial?.name ?? '')
+  const [capacity, setCapacity] = useState(String(initial?.capacity ?? 4))
+  const [description, setDescription] = useState(initial?.description ?? '')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    const cap = Number(capacity)
+    const next: Record<string, string> = {}
+    if (!name.trim() || name.length > 100) next.name = '이름은 1~100자입니다.'
+    if (!Number.isInteger(cap) || cap < 1 || cap > 100) next.capacity = '정원은 1~100 사이 정수입니다.'
+    setErrors(next)
+    if (Object.keys(next).length) return
+
+    setSubmitting(true)
+    try {
+      await onSubmit({ name: name.trim(), capacity: cap, description: description.trim() })
+    } catch (err) {
+      if (err instanceof ApiError && err.fieldErrors.length) {
+        setErrors(Object.fromEntries(err.fieldErrors.map((f) => [f.field, f.reason])))
+      } else {
+        toast.error(err instanceof ApiError ? err.message : '저장에 실패했습니다.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      <Field label="이름" error={errors.name}>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="정원" error={errors.capacity}>
+        <Input
+          type="number"
+          min={1}
+          max={100}
+          value={capacity}
+          onChange={(e) => setCapacity(e.target.value)}
+        />
+      </Field>
+      <Field label="설명" error={errors.description}>
+        <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <div className="form__row">
+        <Button type="submit" loading={submitting}>
+          {submitLabel}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            취소
+          </Button>
+        )}
+      </div>
+    </form>
   )
 }
 

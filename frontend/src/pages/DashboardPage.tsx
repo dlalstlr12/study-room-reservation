@@ -8,10 +8,12 @@ import { Card } from '../components/ui'
 import { formatDateTime } from '../utils/format'
 
 const FEATURES = [
-  { to: '/lottery', label: '이벤트 추첨', desc: '기준 시각 이용자 스냅샷 → 시드 기반 재현 가능한 추첨, 스케줄러 자동 실행' },
-  { to: '/lottery', label: '당첨 실시간 발표', desc: 'WebSocket /topic/lottery — 추첨 커밋 후 새로고침 없이 결과' },
-  { to: '/rooms', label: '실시간 좌석 현황 · 홀딩', desc: 'WebSocket /topic/rooms/{id}, Redis TTL 홀딩, 룸 현황 캐싱' },
-  { to: '/reservations', label: '내 홀딩 / 예약', desc: 'GET /holds/me, /reservations/me' },
+  { to: '/rooms', label: '룸', desc: '룸별 실시간 좌석 현황을 보고 원하는 시간대를 홀딩·예약합니다' },
+  { to: '/reservations', label: '내 예약', desc: '내가 홀딩·예약한 내역을 확인하고 취소하거나 이용을 마치면 퇴실 처리합니다' },
+  { to: '/lottery', label: '이벤트 추첨', desc: '이용 중인 회원 또는 전체 회원을 대상으로 추첨하고, 결과를 실시간으로 발표합니다' },
+  { to: '/notifications', label: '알림', desc: '추첨 결과, 결제 내역 등 나에게 온 소식을 실시간으로 확인합니다' },
+  { to: '/ranking', label: '랭킹', desc: '누적 이용 시간을 기준으로 순위를 매겨 보여줍니다' },
+  { to: '/subscription', label: '구독', desc: 'PRO를 구독하면 좌석 홀딩 유예 시간이 늘어나고, 정기결제 내역을 확인할 수 있습니다' },
 ]
 
 export function DashboardPage() {
@@ -43,7 +45,7 @@ export function DashboardPage() {
       <div className="page__head">
         <h1>대시보드</h1>
         <p className="page__lead">
-          로드맵 5단계 — 이용 중이던 회원 대상 이벤트 추첨. 아래 화면들에서 직접 확인할 수 있습니다.
+          스터디룸을 편하게 예약하고 이용할 수 있도록 돕는 스터디룸 예약 시스템입니다.
         </p>
       </div>
 
@@ -73,7 +75,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card title="5단계 기능">
+      <Card title="이용 가능한 기능">
         <ul className="feature-list">
           {FEATURES.map((f) => (
             <li key={f.label}>

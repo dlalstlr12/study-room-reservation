@@ -63,16 +63,20 @@ export function DashboardPage() {
             <p className="stat__sub">서버 시각 {formatDateTime(health.timestamp)}</p>
           )}
         </Card>
-        <Card title="등록된 룸">
-          <p className="stat">{stats.rooms ?? '—'}<span className="stat__unit">개</span></p>
-        </Card>
-        <Card title="내 예약">
-          <p className="stat">
-            {status === 'authenticated' ? stats.reservations ?? '—' : '—'}
-            <span className="stat__unit">건</span>
-          </p>
-          {status !== 'authenticated' && <p className="stat__sub">로그인하면 표시됩니다</p>}
-        </Card>
+        <Link to="/rooms" className="stat-card-link">
+          <Card title="등록된 룸">
+            <p className="stat">{stats.rooms ?? '—'}<span className="stat__unit">개</span></p>
+          </Card>
+        </Link>
+        <Link to="/reservations" className="stat-card-link">
+          <Card title="내 예약">
+            <p className="stat">
+              {status === 'authenticated' ? stats.reservations ?? '—' : '—'}
+              <span className="stat__unit">건</span>
+            </p>
+            {status !== 'authenticated' && <p className="stat__sub">로그인하면 표시됩니다</p>}
+          </Card>
+        </Link>
       </div>
 
       <Card title="이용 가능한 기능">

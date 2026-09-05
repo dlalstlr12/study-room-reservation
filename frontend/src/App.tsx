@@ -1,6 +1,8 @@
 import { Route, Routes } from 'react-router-dom'
+import { AdminRoute } from './components/AdminRoute'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AdminPage } from './pages/AdminPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { LotteryPage } from './pages/LotteryPage'
@@ -58,6 +60,14 @@ export default function App() {
             <ProtectedRoute>
               <SubscriptionPage />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin"
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
           }
         />
         <Route path="login" element={<LoginPage />} />

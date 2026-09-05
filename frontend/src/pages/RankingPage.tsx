@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { ApiError } from '../api/client'
-import { getMyRank, getRankings, rebuildRankings } from '../api/rankings'
+import { getMyRank, getRankings } from '../api/rankings'
 import { useAuth } from '../auth/AuthContext'
-import { useToast } from '../components/ToastContext'
-import { Button, Card, EmptyState, Spinner } from '../components/ui'
+import { Card, EmptyState, Spinner } from '../components/ui'
 import { useApi } from '../hooks/useApi'
 import type { MyRank, RankingEntry, RankingScope } from '../types'
 import { formatMinutes } from '../utils/format'
@@ -16,23 +14,11 @@ const SCOPES: { value: RankingScope; label: string }[] = [
 const MEDAL = ['🥇', '🥈', '🥉']
 
 export function RankingPage() {
-  const { user, isAdmin } = useAuth()
-  const toast = useToast()
+  const { user } = useAuth()
   const [scope, setScope] = useState<RankingScope>('all')
 
   const rankings = useApi<RankingEntry[]>(() => getRankings(scope), [scope])
   const myRank = useApi<MyRank>(() => getMyRank(scope), [scope])
-
-  const handleRebuild = async () => {
-    try {
-      await rebuildRankings()
-      toast.success('랭킹을 재구축했습니다.')
-      rankings.reload()
-      myRank.reload()
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : '재구축에 실패했습니다.')
-    }
-  }
 
   return (
     <div className="page">
@@ -67,16 +53,7 @@ export function RankingPage() {
         </div>
       )}
 
-      <Card
-        title={scope === 'all' ? '전체 누적' : '오늘'}
-        actions={
-          isAdmin ? (
-            <Button variant="ghost" onClick={handleRebuild}>
-              재구축
-            </Button>
-          ) : undefined
-        }
-      >
+      <Card title={scope === 'all' ? '전체 누적' : '오늘'}>
         {rankings.loading && <Spinner />}
         {rankings.error && <EmptyState>{rankings.error}</EmptyState>}
         {rankings.data && rankings.data.length === 0 && (

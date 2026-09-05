@@ -1,9 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError } from '../api/client'
-import { sendAnnouncement } from '../api/notifications'
-import { useAuth } from '../auth/AuthContext'
-import { useToast } from '../components/ToastContext'
-import { Button, Card, EmptyState, Field, Input, Spinner, Textarea } from '../components/ui'
+import { useEffect, useState } from 'react'
+import { Button, Card, EmptyState, Spinner } from '../components/ui'
 import { useNotifications } from '../notifications/NotificationContext'
 import { onConnectionChange } from '../realtime/stompClient'
 import type { AppNotification } from '../types'
@@ -17,7 +13,6 @@ const TYPE_LABEL: Record<AppNotification['type'], string> = {
 }
 
 export function NotificationsPage() {
-  const { isAdmin } = useAuth()
   const { items, loading, markRead, markAllRead } = useNotifications()
 
   const [live, setLive] = useState(false)
@@ -37,8 +32,6 @@ export function NotificationsPage() {
           <span className="badge badge--stop">FAILED</span>로 표시됩니다.
         </p>
       </div>
-
-      {isAdmin && <AnnouncementForm />}
 
       <Card
         title="받은 알림"
@@ -81,68 +74,5 @@ export function NotificationsPage() {
         )}
       </Card>
     </div>
-  )
-}
-
-function AnnouncementForm() {
-  const toast = useToast()
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [open, setOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string>()
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(undefined)
-    if (!title.trim() || !body.trim()) {
-      setError('제목과 내용을 입력하세요.')
-      return
-    }
-    setSubmitting(true)
-    try {
-      await sendAnnouncement({ title: title.trim(), body: body.trim() })
-      toast.success('전체 공지를 발송했습니다. 워커가 순차 처리합니다.')
-      setTitle('')
-      setBody('')
-      setOpen(false)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '발송에 실패했습니다.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Card
-      title="전체 공지 보내기"
-      actions={
-        <Button variant={open ? 'ghost' : 'secondary'} onClick={() => setOpen((v) => !v)}>
-          {open ? '닫기' : '새 공지'}
-        </Button>
-      }
-    >
-      {open ? (
-        <form className="form" onSubmit={submit} noValidate>
-          <Field label="제목">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="서비스 점검 안내" />
-          </Field>
-          <Field label="내용">
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={3}
-              placeholder="9/10 02:00~03:00 점검이 예정되어 있습니다."
-            />
-          </Field>
-          {error && <p className="form__error">{error}</p>}
-          <Button type="submit" loading={submitting}>
-            모든 회원에게 발송
-          </Button>
-        </form>
-      ) : (
-        <p className="muted">모든 회원에게 알림을 비동기로 발행합니다.</p>
-      )}
-    </Card>
   )
 }

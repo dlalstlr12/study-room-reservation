@@ -18,8 +18,10 @@ const NAV = [
   { to: '/subscription', label: '구독', end: false },
 ]
 
+const ADMIN_NAV = { to: '/admin', label: '관리자', end: false }
+
 export function AppLayout() {
-  const { user, status, logout } = useAuth()
+  const { user, status, isAdmin, logout } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const [health, setHealth] = useState<HealthState>('checking')
@@ -57,7 +59,6 @@ export function AppLayout() {
           </span>
           <div>
             <strong>스터디룸 예약</strong>
-            <span className="sidebar__sub">STEP 8 · BILLING</span>
           </div>
         </div>
         <nav className="sidebar__nav">
@@ -71,6 +72,15 @@ export function AppLayout() {
               {item.label}
             </NavLink>
           ))}
+          {isAdmin && (
+            <NavLink
+              to={ADMIN_NAV.to}
+              end={ADMIN_NAV.end}
+              className={({ isActive }) => `sidebar__link sidebar__link--admin${isActive ? ' is-active' : ''}`}
+            >
+              {ADMIN_NAV.label}
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar__foot">
           <span className={`health health--${health}`}>

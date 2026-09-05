@@ -1,12 +1,5 @@
 import { ApiError } from '../api/client'
-import {
-  cancelSubscription,
-  getMySubscription,
-  listMyPayments,
-  runBilling,
-  subscribePro,
-} from '../api/subscriptions'
-import { useAuth } from '../auth/AuthContext'
+import { cancelSubscription, getMySubscription, listMyPayments, subscribePro } from '../api/subscriptions'
 import { useToast } from '../components/ToastContext'
 import { Button, Card, EmptyState, Spinner } from '../components/ui'
 import { useApi } from '../hooks/useApi'
@@ -22,7 +15,6 @@ const STATUS_LABEL: Record<NonNullable<Subscription['status']>, string> = {
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 
 export function SubscriptionPage() {
-  const { isAdmin } = useAuth()
   const toast = useToast()
   const sub = useApi<Subscription>(() => getMySubscription(), [])
   const payments = useApi<Payment[]>(() => listMyPayments(), [])
@@ -53,16 +45,6 @@ export function SubscriptionPage() {
     }
   }
 
-  const handleRunBilling = async () => {
-    try {
-      const result = await runBilling()
-      toast.success(`정기결제 배치 실행: ${result.status}`)
-      setTimeout(reload, 1500)
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : '배치 실행에 실패했습니다.')
-    }
-  }
-
   const plan = sub.data?.plan ?? 'FREE'
   const status = sub.data?.status ?? null
   const isPro = plan === 'PRO' && status !== 'CANCELLED'
@@ -78,16 +60,7 @@ export function SubscriptionPage() {
         </p>
       </div>
 
-      <Card
-        title="내 플랜"
-        actions={
-          isAdmin ? (
-            <Button variant="ghost" onClick={handleRunBilling}>
-              정기결제 실행
-            </Button>
-          ) : undefined
-        }
-      >
+      <Card title="내 플랜">
         {sub.loading && <Spinner />}
         {sub.data && (
           <div className="plan">
@@ -95,7 +68,7 @@ export function SubscriptionPage() {
               <span className={`plan__name plan__name--${plan.toLowerCase()}`}>{plan}</span>
               {status && (
                 <span
-                  className={`badge badge--${status === 'ACTIVE' ? 'done' : status === 'PAST_DUE' ? 'stop' : 'free'}`}
+                  className={`badge badge--${status === 'ACTIVE' ? 'free' : status === 'PAST_DUE' ? 'stop' : 'done'}`}
                 >
                   {STATUS_LABEL[status]}
                 </span>
@@ -155,7 +128,7 @@ export function SubscriptionPage() {
                   <td className="table__time">{formatDate(p.paidAt)}</td>
                   <td className="mono-sm">{won(p.amountKrw)}</td>
                   <td>
-                    <span className={`badge badge--${p.status === 'SUCCEEDED' ? 'done' : 'stop'}`}>
+                    <span className={`badge badge--${p.status === 'SUCCEEDED' ? 'free' : 'stop'}`}>
                       {p.status === 'SUCCEEDED' ? '성공' : '실패'}
                     </span>
                   </td>

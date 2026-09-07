@@ -93,6 +93,8 @@ finally { if (lock.isHeldByCurrentThread()) lock.unlock(); }
 
 ### 성능 비교
 
+> 아래는 2단계 당시 측정. 전 시나리오를 한 환경에서 다시 잰 종합표는 [`performance.md`](./performance.md).
+
 측정 환경: 로컬(Windows), MySQL 8 · Redis 7 (Docker), 백엔드 단일 인스턴스,
 Hikari pool 20, 로깅 WARN. k6 20 VU × 30초, 같은 룸·같은 시간대로만 `POST /api/reservations`.
 

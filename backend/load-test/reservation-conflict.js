@@ -22,8 +22,8 @@ const SLOT = { startAt: '2027-01-05T10:00:00', endAt: '2027-01-05T11:00:00' }
 
 const created201 = new Counter('created_201')
 
-// 201·409 는 정상 응답으로 취급 (409 = 이미 예약됨 / 락 타임아웃)
-http.setResponseCallback(http.expectedStatuses(201, 409))
+// 200(setup 로그인)·201(예약 성공)·409(이미 예약됨 / 락 타임아웃) 는 정상 응답으로 취급
+http.setResponseCallback(http.expectedStatuses(200, 201, 409))
 
 export const options = {
   scenarios: {

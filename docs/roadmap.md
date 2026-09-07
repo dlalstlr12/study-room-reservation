@@ -20,25 +20,29 @@
 
 ## 1. 전체 아키텍처 개요
 
+> 아래는 **초기 스케치**다. 최종 구조는 [`../README.md`](../README.md) 아키텍처 절 참고
+> (메시지 큐는 Kafka 로 확정, 알림은 이메일 없이 WebSocket + DB 이력, Batch 는 아웃박스 경유).
+
 ```mermaid
 flowchart LR
     Client[Client / WebSocket] --> API[Spring Boot API 서버]
     API --> DB[(MySQL)]
     API --> Redis[(Redis)]
-    API -- 예약 완료/퇴실 이벤트 발행 --> MQ[[Kafka/RabbitMQ]]
+    API -- "커밋 후 이벤트 발행" --> MQ[Kafka]
     MQ --> NotiWorker[알림 워커]
     MQ --> RankWorker[랭킹 집계 워커]
-    NotiWorker --> Push[푸시/이메일 발송]
-    Batch[Spring Batch 스케줄러] --> DB
-    Batch --> MQ
+    NotiWorker --> Push[WebSocket 푸시 + 이력 저장]
+    Batch[Spring Batch] -- "트랜잭션 아웃박스" --> MQ
+    Batch --> DB
 ```
 
 - **API 서버**: 예약/회원/구독 등 핵심 도메인 처리 (동기)
 - **Redis**: 좌석 홀딩 TTL, 분산락, 실시간 랭킹(Sorted Set), 캐싱
-- **메시지 큐**: 예약 완료/퇴실/구독 결제 등 도메인 이벤트를 비동기로 전파
-- **알림 워커**: 큐를 구독해 알림 발송 (전체 회원 / 현재 이용중 회원 분리)
+- **Kafka**: 추첨/공지/퇴실/구독결제 도메인 이벤트를 비동기 전파. 세 스트림
+  (`notification-events` / `usage-events` / `subscription-events`)을 타입별 컨테이너 팩토리로 분리
+- **알림 워커**: 큐를 구독해 이력 저장(멱등) + WebSocket 푸시. 재시도 → DLT
 - **랭킹 워커**: 퇴실 이벤트를 구독해 Redis Sorted Set 갱신
-- **Spring Batch**: 정기 구독 결제, 정산, 통계 집계를 스케줄 기반으로 처리
+- **Spring Batch**: 정기 구독 결제 (정산·통계 집계는 범위 밖)
 
 ---
 
@@ -54,20 +58,24 @@ erDiagram
     RESERVATION ||--o| USAGE_LOG : generates
     LOTTERY_EVENT ||--o{ LOTTERY_ENTRY : has
     SUBSCRIPTION ||--o{ PAYMENT : bills
-    RESERVATION }o--|| SUBSCRIPTION : "우선예약권 적용(optional)"
 ```
+
+> 예약↔구독은 FK 로 잇지 않는다 — 구독 혜택(홀딩 유예 연장)은 `HoldTtlPolicy` 포트로
+> 느슨하게 결합한다. "우선예약권"은 계획에만 있었고 구현하지 않았다(§11).
 
 | 엔티티 | 핵심 컬럼 | 비고 |
 |---|---|---|
-| Member | id, email, role, subscriptionStatus | JWT 인증 대상 |
+| Member | id, email, name, role | JWT 인증 대상. 구독 상태는 Subscription 에 |
 | Room | id, name, capacity | ~~status~~ 3단계에서 제거 — 시간대 단위 예약이라 룸 단일 상태값이 무의미, 가용성은 예약 겹침 + Redis 홀딩으로 판단 |
-| Reservation | id, memberId, roomId, startAt, endAt, status, version | 낙관적락용 version 컬럼 |
-| UsageLog | id, memberId, roomId, duration | 랭킹 집계 소스, 퇴실 시 생성 |
-| LotteryEvent | id, targetTime, status | "현재 이용중" 스냅샷 기준 시점 |
+| Reservation | id, memberId, roomId, startAt, endAt, status, checkedOutAt, version | `@Version` 은 취소·퇴실 UPDATE 경합 방어용 (오버부킹은 §3-1 참고) |
+| UsageLog | id, memberId, roomId, duration, reservationId(UNIQUE) | 랭킹 집계 소스, 퇴실 시 생성, reservationId 로 멱등 |
+| LotteryEvent | id, audience, status, seed | ADMIN "지금 추첨" — 예약된 시점(targetTime) 없음. seed 로 재현 |
 | LotteryEntry | id, eventId, memberId, isWinner | |
-| Subscription | id, memberId, plan, nextBillingAt, status | |
-| Payment | id, subscriptionId, amount, status, idempotencyKey | 멱등키 필수 |
-| Notification | id, memberId, type, channel, status | 발송 이력 |
+| Subscription | id, memberId(UNIQUE), plan, nextBillingAt, status | |
+| Payment | id, subscriptionId, amountKrw, status, idempotencyKey(UNIQUE) | `sub:{id}:{yyyy-MM}` |
+| Notification | id, memberId, type, title, body, status, dedupKey(UNIQUE), readAt | 단일 채널(in-app + WS), `channel` 컬럼 없음 |
+
+> 인프라성 테이블: `outbox_events` · Spring Batch 메타데이터(`BATCH_*`, V7)는 8단계, `usage_logs` 는 7단계. ERD 에는 도메인 엔티티만 표기.
 
 ---
 
@@ -75,14 +83,14 @@ erDiagram
 
 ### 3-1. 예약 시스템 (Core)
 
-**흐름**: 룸 선택 → 홀딩(5~10분) → 결제/확정 → 이용 → 퇴실
+**흐름**: 룸 선택 → 홀딩(10분) → 확정 → 이용 → 퇴실
 
 | 문제 | 해결 기법 | 학습 포인트 |
 |---|---|---|
-| 동시에 같은 룸을 여러 명이 클릭 | Redis 분산락(Redisson) + DB 낙관적락(버전) 병행 | 락 종류별 트레이드오프 설명 가능 |
-| 홀딩 후 결제 안 하고 이탈 | Redis TTL로 자동 해제 | TTL 만료 이벤트 → 룸 상태 원복 |
-| 실시간 좌석 상태 반영 | WebSocket/STOMP 브로드캐스트 | 기존 WebRTC/Socket.IO 경험 재사용 |
-| 예약 취소/변경 정합성 | 상태 전이(State Machine)로 관리 | 잘못된 상태 전이 방지 |
+| 동시에 같은 룸을 여러 명이 클릭 | 락 없음 → DB 비관적 락 → Redisson 분산 락 (전략 전환, 부하 비교) | 락 종류별 트레이드오프. **낙관적 락은 INSERT-vs-INSERT 오버부킹을 못 막아 미채택** ([`troubleshooting.md`](./troubleshooting.md)) |
+| 홀딩 후 확정 안 하고 이탈 | Redis TTL 자동 삭제 | keyspace 만료 이벤트 → 홀딩 키 정리 + 캐시 무효화, 스케줄러 백스톱 병행 (이벤트는 신뢰성 보장 X) |
+| 실시간 좌석 상태 반영 | WebSocket/STOMP 브로드캐스트 | 기존 Socket.IO 경험 확장 |
+| 예약 취소/변경 정합성 | 상태 전이 가드 (enum + 전이 조건 검사) | 잘못된 상태 전이 방지. 상태 3개(RESERVED/CANCELLED/COMPLETED)라 State Machine 라이브러리는 과함 |
 
 **단계별 구현 순서 (권장)**
 1. 락 없이 기본 CRUD 구현 → 일부러 동시성 버그 재현 (테스트로 증명)
@@ -96,35 +104,41 @@ erDiagram
 
 - 추첨 대상은 **현재 이용 중인 회원**(`RESERVED` 이면서 추첨 순간이 `startAt <= now < endAt`) 또는
   **전체 회원**. (3단계에서 `Room.status` 제거)
-- ADMIN이 "지금 추첨"으로 실행, 당첨자에게 알림 발행 (실시간 발표는 4단계 WebSocket 재사용)
-- 랜덤 추첨 로직은 단순 `Random`보다 **공정성 검증이 가능한 방식**(예: 시드 고정 + 로그 기록)으로 설계하면 신뢰성 어필 가능
-- 확장 포인트: 당첨자 발표를 WebSocket으로 실시간 브로드캐스트
+- ADMIN이 "지금 추첨"으로 실행 → 당첨자 개인 알림(6단계 파이프라인) + `/topic/lottery/{id}` 실시간 발표(4단계 WebSocket 재사용)
+- 공정성 검증 가능: `SecureRandom` 으로 seed 생성 → `lottery_events.seed` 저장 → 후보를 memberId 정렬 후 `new Random(seed)` shuffle. 같은 (후보, seed, 인원)이면 언제든 같은 결과 → 분쟁 시 재실행 검증
+- 동시성: `draw()` 는 Redisson 락 + `SCHEDULED → DRAWN` 가드 → 중복 클릭·다중 인스턴스에도 1회
 
 ### 3-3. 알림 시스템
 
-두 가지 발송 패턴을 분리해서 설계하는 것이 포인트입니다.
+당초 "전체 공지 = 큐, 즉시 알림 = WebSocket" 2패턴 분리를 계획했으나, **Kafka 컨슈머 왕복이
+ms 단위라 단일 파이프라인으로 통일**했다(§11). 즉시성은 워커가 소비 직후 WebSocket 으로 밀어
+충족하고, 이벤트 타입만 리스너별 컨테이너 팩토리로 분리한다.
 
-| 대상 | 특징 | 처리 방식 |
-|---|---|---|
-| 전체 회원 대상 (이벤트 공지 등) | 대량, 지연 허용 | Kafka/RabbitMQ + 배치성 워커, 재시도 + DLQ |
-| 현재 이용중인 회원 대상 (당첨 알림, 종료 임박 알림 등) | 소량, 즉시성 중요 | WebSocket 또는 즉시 큐 처리 |
+```
+추첨 결과 / 전체 공지 ─▶ notification-events ─▶ 워커 ─┬─ dedup_key 멱등 저장 (notifications)
+                                                      ├─ 발송 (실패 시 재시도)
+                                                      └─ WebSocket /topic/notifications/{memberId}
+```
 
-- 발송 실패 시 재시도 정책(exponential backoff) + 최종 실패는 DLQ로 격리
-- 알림 이력(Notification 테이블)에 발송 상태 기록 → "발송 성공률 모니터링" 같은 운영 관점 어필 가능
+- 발송 실패 시 `@RetryableTopic` 지수 백오프(0.5s→1s→2s) → 소진 시 DLT(`-dlt`) 격리, 이력 `FAILED`
+- 알림 이력(notifications)에 발송 상태 기록 → "발송 성공률 모니터링" 운영 관점
+- `dedup_key` UNIQUE → at-least-once 재처리에도 1건
 
 ### 3-4. 실시간 랭킹 (최장 이용 시간)
 
-- 퇴실 시 `UsageLog` 생성 → 이벤트 발행 → 랭킹 워커가 `Redis Sorted Set`의 누적 점수(ZINCRBY)로 갱신
-- 랭킹 조회는 Redis에서 바로 (`ZREVRANGE`), DB 조회 없이 O(log N) 성능
-- 확장 포인트: 일간/주간/전체 랭킹을 Sorted Set 여러 개로 분리, 자정 배치로 일간 랭킹 초기화
-- 조회수/좋아요형 어뷰징과 달리 "실제 이용시간"이라 조작 방지 로직은 상대적으로 단순 — 대신 "왜 Sorted Set을 썼는가", "동시 갱신 시 원자성을 어떻게 보장하는가(ZINCRBY 자체가 원자적)"를 설명할 수 있어야 함
+- 퇴실 시 `usage_logs` 생성(`reservation_id` UNIQUE 멱등) → Kafka `usage-events` → 랭킹 워커가 `ZINCRBY` 로 갱신
+- 전체(`ranking:all`) + 일간(`ranking:daily:{date}`, **TTL 48h** — 자정 배치 없이 자연 만료). 주간은 범위 밖(§11)
+- 랭킹 조회는 Redis에서 바로 (`ZREVRANGE` / `ZREVRANK`+`ZSCORE`), DB 조회 없이 O(log N)
+- Redis 유실 대비 `POST /api/rankings/rebuild`(ADMIN) 가 `usage_logs` 합계로 재구축
+- 어필: "왜 Sorted Set 인가", "`ZINCRBY` 자체가 원자적이라 동시 갱신에도 정확 (10스레드×20회 → 200)"
 
 ### 3-5. 정기 구독권
 
 - Spring Batch로 매일 자정 `nextBillingAt`이 도래한 구독 건을 조회해 결제 실행
-- **트랜잭션 아웃박스 패턴**: 결제 성공 → 이벤트를 같은 트랜잭션 내 아웃박스 테이블에 기록 → 별도 프로세스가 아웃박스를 읽어 큐에 발행 (결제와 이벤트 발행 사이 데이터 유실 방지)
-- 결제 API 호출 시 `idempotencyKey`로 중복 결제 방지
-- 구독자 혜택을 예약 시스템과 연결 (예: 우선 홀딩 시간 연장, 요금 할인) → 도메인 간 연계 어필
+- **트랜잭션 아웃박스 패턴**: 결제 성공 → 이벤트를 같은 트랜잭션 내 아웃박스 테이블에 기록 → 별도 릴레이(`FOR UPDATE SKIP LOCKED`)가 읽어 Kafka 에 발행 (결제와 이벤트 발행 사이 유실 방지)
+- 결제 시 `idempotencyKey`(`sub:{id}:{yyyy-MM}`) UNIQUE 로 중복 결제 방지
+- 구독자 혜택 = **PRO 회원 홀딩 유예 연장 (10분 → 20분)**. `HoldTtlPolicy` 포트로 예약↔구독 느슨한 결합.
+  ("우선예약권", "요금 할인"은 계획에만 있었고 구현하지 않았다 — §11)
 
 ---
 
@@ -143,17 +157,25 @@ erDiagram
 | 테스트 | JUnit5, Mockito, Testcontainers | 신규 — 반드시 포함 |
 | 부하테스트 | K6 또는 nGrinder | 신규 |
 | 문서화 | Swagger/OpenAPI | 신규 |
-| 인프라 | Docker, AWS EC2+RDS(또는 최소 프리티어) | 기존 PaaS(Render/Railway)와 차별화 |
-| CI/CD | GitHub Actions | 기존 Jenkins 경험 확장 |
+| 인프라 | Docker, AWS EC2 (1회성 검증 후 삭제), 상시 데모는 무료 티어(Render·Vercel·TiDB·Upstash·Confluent) | 프리티어 소진 → §11 |
+| CI/CD | GitHub Actions (빌드·테스트·이미지), Render/Vercel Git 연동 배포 | 기존 Jenkins 경험 확장 |
 
 ---
 
 ## 5. 인프라 & 배포
 
-- Docker Compose로 로컬에 MySQL/Redis/RabbitMQ 통합 개발 환경 구성
-- AWS EC2에 애플리케이션 배포, RDS로 MySQL 운영 (프리티어로 충분히 가능)
-- GitHub Actions로 빌드 → 테스트 → Docker 이미지 빌드 → EC2 배포 파이프라인 구성
-- 부하테스트는 운영 환경과 유사한 스펙에서 진행 (로컬 결과와 차이 기록해두면 설명 포인트가 됨)
+> 초기 계획은 "AWS EC2 + RDS 상시 운영 + Actions → EC2 배포 파이프라인"이었으나,
+> 프리티어 소진 후 상시 EC2 비용 부담으로 방향을 바꿨다 (§11).
+
+- **로컬** — Docker Compose (MySQL · Redis · Kafka · kafka-ui)
+- **AWS 경험** — 전체 스택을 EC2 t3.medium 에 `docker compose` 로 올려 [`../deploy/verify.sh`](../deploy/verify.sh)
+  16종 통과 확인 → **인스턴스·볼륨 완전 삭제** (1회성 ~$0.01, 근거 [`deploy/`](./deploy/))
+- **상시 데모** — 프론트 Vercel · 백엔드 Render(Docker) · MySQL TiDB Cloud · Redis Upstash ·
+  Kafka Confluent Cloud Basic. `main` push 시 Render/Vercel 이 Git 연동으로 자동 재배포 ([`../deploy/RENDER.md`](../deploy/RENDER.md))
+- **CI** — `.github/workflows/ci.yml` (backend `gradlew build` + Testcontainers / frontend 빌드 / 이미지 빌드)
+- **부하테스트** — 로컬 + AWS EC2 두 환경에서 재측정 ([`performance.md`](./performance.md)).
+  운영 유사 스펙에서 처리량이 오를 걸로 봤으나, t3.medium(2 vCPU)에 앱·인프라·k6 를 다 얹어
+  오히려 낮았다 — 절대 수치의 환경 종속성을 확인 (§11)
 
 ---
 
@@ -224,12 +246,14 @@ erDiagram
 
 ### 작업 흐름
 
-1. **이슈 생성** — 로드맵 단계/작업 단위로 GitHub Issue를 먼저 만든다 (배경·완료 조건 명시). 로드맵 10단계는 각각 **마일스톤**으로 등록.
-2. **브랜치 분기** — 최신 `main`에서 `feature/<이슈번호>-...` 생성.
+1. **작업 단위 정의** — 로드맵 단계/작업 단위로 브랜치를 판다. 이 로드맵 문서가 이슈 역할을 한다
+   (배경·완료 조건이 여기 있음). 별도 GitHub Issue·마일스톤은 두지 않았다 — 1인 규모에선 로드맵 +
+   PR 로 충분. 팀 규모면 이슈부터 만든다. *(§11 — 실제와 일치)*
+2. **브랜치 분기** — 최신 `main`에서 `<타입>/<단계번호>-<요약>` 생성.
 3. **커밋** — 커밋 컨벤션(아래) 준수, 작은 단위로 자주.
-4. **PR 생성** — `main` 대상. 제목은 커밋 컨벤션과 동일 형식, 본문에 `Closes #<이슈번호>` 링크.
+4. **PR 생성** — `main` 대상. 제목은 커밋 컨벤션과 동일 형식.
 5. **self-review** — 본인이 PR의 "Files changed"를 직접 리뷰하고, 리뷰 코멘트/스크린샷/부하테스트 결과를 남긴다. CI(빌드+테스트) 통과 확인.
-6. **머지** — **Squash and merge**로 커밋 히스토리를 깔끔하게. 머지 후 브랜치 삭제.
+6. **머지** — **merge commit** (단계별 커밋을 히스토리에 보존해 점진 개발 과정을 남긴다). 머지 후 브랜치 삭제.
 7. **단계 완료 태그** — 로드맵 한 단계가 끝나면 `git tag`로 `step-1-core-domain` 형태의 태그를 남겨 "이 시점에 무엇이 동작했는지" 추적 가능하게 한다.
 
 ### 커밋 컨벤션
@@ -238,31 +262,13 @@ erDiagram
 <타입>: <제목 (한글 가능, 50자 이내, 마침표 없음)>
 
 <본문 - 무엇을/왜 바꿨는지. 어떻게는 코드로 충분>
-
-Closes #<이슈번호>
 ```
 
 타입: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `perf`
 
-### PR 템플릿 (`.github/pull_request_template.md`)
+### PR 템플릿
 
-```markdown
-## 무엇을
-<이 PR이 하는 일 한 줄 요약>
-
-## 왜
-<배경·문제>
-
-## 어떻게
-<핵심 구현 포인트, 트레이드오프>
-
-## 확인
-- [ ] 로컬 실행 확인
-- [ ] 단위/통합 테스트 추가·통과
-- [ ] (해당 시) 동시성/부하 테스트 결과 첨부
-
-Closes #
-```
+[`.github/pull_request_template.md`](../.github/pull_request_template.md) — 무엇을 / 왜 / 어떻게 / 확인 체크리스트.
 
 ### 초기 스캐폴딩 예외
 
@@ -274,20 +280,39 @@ Closes #
 
 | 기능 | 면접에서 어필할 포인트 |
 |---|---|
-| 동시성 제어 | "왜 낙관적락이 아닌 분산락을 선택했는가", "락 범위를 최소화한 방법" |
-| Redis 캐싱/랭킹 | "캐시 무효화 전략", "Sorted Set을 선택한 이유" |
-| 메시징 | "왜 동기 대신 비동기로 처리했는가", "재시도/DLQ 설계" |
-| 배치/아웃박스 | "결제와 이벤트 발행의 원자성을 어떻게 보장했는가" |
-| 테스트 | "동시성 버그를 테스트로 어떻게 재현했는가" |
-| 인프라 | "PaaS에서 IaaS로 넘어가며 무엇이 달라졌는가" |
+| 동시성 제어 | "낙관적 락이 왜 이 케이스(INSERT 경합)를 못 막는가", "비관적 락 vs 분산 락 — 단일 인스턴스면 뭘 고르나" |
+| Redis 캐싱/랭킹 | "캐시 무효화 지점을 한 곳(`RoomChangeNotifier`)으로 모은 이유", "Sorted Set + `ZINCRBY` 원자성" |
+| 메시징 | "동기 발송이면 엔드포인트가 팬아웃을 다 기다린다", "재시도 백오프 → DLT, `dedup_key` 멱등" |
+| 배치/아웃박스 | "결제·상태변경·발행을 한 트랜잭션으로 — 브로커가 죽어도 outbox 에 남는다" |
+| 테스트 | "8스레드가 같은 주기를 결제 → `idempotency_key` UNIQUE 로 1건" |
+| 인프라 | "AWS 배포는 1회성 검증으로 경험만, 상시는 비용 0 무료 티어 — 왜 그렇게 나눴나" (§11) |
 
 ---
 
 ## 10. 최종 체크리스트
 
-- [ ] 동시성 문제를 재현하고 해결하는 과정을 수치로 증명했는가
-- [ ] 테스트 코드(단위+통합+동시성)가 실제로 존재하는가
-- [ ] 비동기 메시징의 실패 처리(재시도/DLQ)까지 구현했는가
-- [ ] Redis를 캐시뿐 아니라 락/랭킹 등 다목적으로 활용했는가
-- [ ] AWS 인프라를 직접 구성해봤는가 (PaaS에만 의존하지 않았는가)
-- [ ] README와 트러블슈팅 문서가 "문제-해결-검증" 구조로 작성되었는가
+- [x] 동시성 문제를 재현하고 해결하는 과정을 수치로 증명했는가 — 락 3전략 부하 비교([`performance.md`](./performance.md))
+- [x] 테스트 코드(단위+통합+동시성)가 실제로 존재하는가 — Testcontainers 통합 + `ExecutorService` 동시성 테스트
+- [x] 비동기 메시징의 실패 처리(재시도/DLQ)까지 구현했는가 — `@RetryableTopic` → DLT, `failure-rate 0.3` → 0.79%
+- [x] Redis를 캐시뿐 아니라 락/랭킹 등 다목적으로 활용했는가 — 캐시 · Redisson 락 · TTL 홀딩 · Sorted Set
+- [x] AWS 인프라를 직접 구성해봤는가 (PaaS에만 의존하지 않았는가) — EC2 전체 스택 배포 검증(1회성, CLI 전 과정)
+- [x] README와 트러블슈팅 문서가 "문제-해결-검증" 구조로 작성되었는가
+
+---
+
+## 11. 계획 대비 주요 변경점
+
+계획대로 되지 않았거나, 진행 중 더 나은 방향을 택한 지점들. *(왜 바꿨는지가 이 프로젝트의 판단 근거)*
+
+| 항목 | 계획 | 실제 | 이유 |
+|---|---|---|---|
+| **상시 인프라** | AWS EC2 상시 운영 + RDS(MySQL) + Actions→EC2 배포 파이프라인 | EC2는 **1회성 검증 후 삭제** · MySQL=TiDB Cloud Serverless · CD=Render/Vercel Git 연동 | 프리티어 소진 → 상시 EC2 비용 부담. "AWS 배포 경험"은 1회성 검증(CLI 전 과정·로그·캡처)으로 확보하고, 상시 데모는 월 $0 무료 티어 조합으로 |
+| **관리형 Kafka** | (미정) | **Confluent Cloud Basic** | Upstash Kafka 가 2025-03 종료 → 무료로 상시 가능한 관리형 Kafka 가 사실상 Confluent Basic(클러스터 요금 없음)뿐 |
+| **알림 발송 패턴** | 전체=큐 / 즉시=WebSocket, 2패턴 분리 | **단일 Kafka 파이프라인** + 소비 직후 WebSocket 푸시 | 컨슈머 왕복이 ms 단위라 "즉시성"을 단일 경로로 충족. 대신 이벤트 타입별 컨테이너 팩토리로 역직렬화 분리 |
+| **동시성 락** | 분산 락 + 낙관적 락 병행 | 낙관적 락 **미채택**(`@Version` 컬럼은 유지) | 오버부킹은 INSERT-vs-INSERT — 기존 행이 없어 `@Version` 으로 못 막는다. `@Version` 은 취소·퇴실 UPDATE 경합 방어용으로만 |
+| **일간 랭킹 초기화** | 자정 배치로 리셋 | `ranking:daily:{date}` 키에 **TTL 48h** | 날짜별 키 + TTL 이면 배치 없이 자연 만료. 스케줄러 하나 덜 만듦 |
+| **머지 전략** | Squash and merge | **merge commit** | 단계별 커밋(96개)을 히스토리에 보존해 점진 개발 과정을 남김 |
+| **이슈 트래킹** | GitHub Issue + 마일스톤 | 로드맵 문서 + PR | 1인 규모에선 로드맵이 이슈 역할. 팀이면 이슈부터 |
+| **10단계 부하 측정** | 운영 유사 스펙에서 처리량 상승 기대 | EC2 t3.medium 이 로컬보다 **낮음** | 2 vCPU 에 앱·인프라·k6 동거. "절대 수치는 환경 종속, 상대 비교만 유효"를 측정으로 확인 |
+
+**범위 밖(계획에만 존재)**: 우선예약권, 구독 요금 할인, 주간 랭킹, QueryDSL, RabbitMQ, 정산·통계 집계 배치, 이메일/푸시 발송 채널.

@@ -1,4 +1,6 @@
-# AWS EC2 배포 검증 근거 (로드맵 9단계)
+# 배포 검증 근거 (로드맵 9단계)
+
+## A. AWS EC2 1회성 검증
 
 2026-09-07, 전체 스택을 EC2 t3.medium(ap-northeast-2, Ubuntu 24.04)에 `docker compose`로
 배포해 동작을 확인하고, 비용 최소화를 위해 인스턴스·볼륨을 완전히 삭제했다.
@@ -13,6 +15,14 @@
 | `07-verify-smoke-test.txt` | `deploy/verify.sh` 엔드투엔드 16종 **PASS=16 / FAIL=0** |
 | `06-terminated.json` · `06-teardown.json` | 인스턴스 terminated, 볼륨/스냅샷/AMI/키페어/보안그룹 전부 삭제, 이후 비용 $0 |
 
+## B. 상시 무료 배포 (Render + Vercel + TiDB + Upstash + Confluent)
+
+| 파일 | 내용 |
+|---|---|
+| `08-verify-render-standing.txt` | Render URL 대상 `deploy/verify.sh` **PASS=16 / FAIL=0** — 관리형 서비스 조합으로 전 기능 동작 |
+
+배포 과정에서 관리형 서비스별로 잡은 이슈는 아래 "트러블슈팅" 참고.
+
 ## 결과 요약
 
 - 헬스 → 회원가입/로그인(JWT) → PRO 구독 → **Spring Batch 정기결제**(`COMPLETED`) →
@@ -23,6 +33,18 @@
 
 ## 스크린샷
 
-배포된 `http://<EC2_IP>` 에서 캡처: 대시보드(백엔드 "운영 중"·룸 4개), 관리자 로그인,
-관리자 페이지(룸 CRUD·공지), `http://<EC2_IP>:8085` Kafka UI 토픽 목록
-(`notification-events` 3건 · `subscription-events` 1건). PNG 는 이 디렉터리에 추가.
+배포된 `http://<EC2_IP>` / Vercel 에서 캡처: 대시보드(백엔드 "운영 중"·룸 4개), 관리자 로그인,
+관리자 페이지(룸 CRUD·공지), Kafka UI 토픽 목록. PNG 는 이 디렉터리에 추가.
+
+## 트러블슈팅 — 상시 배포 (관리형 서비스별)
+
+| 증상 | 원인 → 해결 |
+|---|---|
+| 프론트 API 전부 실패 | `SPRING_DATA_REDIS_HOST` 에 `https://` 붙은 REST URL → 호스트명만. `RedisConfig` 가 `rediss://` + host 조합 시 깨짐 |
+| 백엔드 부팅 실패 (`redisson`) | Upstash 는 TLS 필수 → `SPRING_DATA_REDIS_SSL=true` + `RedisConfig` password·ssl 지원 |
+| DB 연결 실패 (`Driver ... claims to not accept jdbcUrl`) | TiDB 연결문자열 `mysql://user:pass@host` 를 그대로 사용 → `jdbc:` 접두 + `user:pass@` 제거(계정은 별도 키) |
+| 정기결제 500 (`isolation level 'SERIALIZABLE' is not supported`) | TiDB 는 SERIALIZABLE 미지원 → JDBC URL 에 `sessionVariables=tidb_skip_isolation_level_check=1` |
+| Render health check 실패 (포트) | Render 가 `PORT`(10000) 주입 → `server.port=${PORT:8080}` |
+| 콜드스타트 3~4분 | 512MB/0.1CPU — `-XX:TieredStopAtLevel=1`, Redisson/Hikari 풀 축소 (`lazy-init` 은 부작용으로 롤백) |
+| 공지 후 알림 미수신 (`lazy-init` 시도 중) | `spring.main.lazy-initialization` 이 `@KafkaListener` 빈 등록 누락시킴 → 제거 |
+| Kafka 컨슈머 `API_VERSIONS disconnect` 루프 | `RankingKafkaConfig`·`SubscriptionKafkaConfig` 커스텀 팩토리가 SASL 설정 누락 → `config.putAll(kafkaProperties.getProperties())` (프로듀서는 Boot 자동설정이라 정상이었음) |

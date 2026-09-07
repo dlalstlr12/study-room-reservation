@@ -1,0 +1,41 @@
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_duration
+    ✓ 'p(95)<300' p(95)=225.25ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 9774    324.182328/s
+    checks_succeeded...: 100.00% 9774 out of 9774
+    checks_failed......: 0.00%   0 out of 9774
+
+    ✓ rooms 200
+    ✓ schedule 200
+
+    HTTP
+    http_req_duration..............: avg=92.03ms  min=3.3ms   med=72.29ms  max=679.94ms p(90)=165.92ms p(95)=225.25ms
+      { expected_response:true }...: avg=92.03ms  min=3.3ms   med=72.29ms  max=679.94ms p(90)=165.92ms p(95)=225.25ms
+    http_req_failed................: 0.00%  0 out of 9775
+    http_reqs......................: 9775   324.215496/s
+
+    EXECUTION
+    iteration_duration.............: avg=184.43ms min=10.46ms med=152.46ms max=1.06s    p(90)=317.13ms p(95)=390.94ms
+    iterations.....................: 4887   162.091164/s
+    vus............................: 30     min=30        max=30
+    vus_max........................: 30     min=30        max=30
+
+    NETWORK
+    data_received..................: 6.1 MB 203 kB/s
+    data_sent......................: 904 kB 30 kB/s
+
+
+

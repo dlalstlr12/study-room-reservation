@@ -1,0 +1,70 @@
+== 이미지 빌드 ==
+  backend image OK
+== 인프라 기동 ==
+  infra healthy (10s)
+
+================ x86_64 2 vCPU / 3GB ================
+[예약 동시성] none
+  be up (11s)
+       http_req_failed
+       created_201....................: 3      0.082575/s
+       http_req_duration..............: avg=84.5ms  min=4.98ms med=68.62ms max=587.71ms p(90)=149.25ms p(95)=192.88ms
+       http_req_failed................: 0.00%  0 out of 7154
+       http_reqs......................: 7154   196.913644/s
+   RESERVED rows: 3
+
+[예약 동시성] pessimistic
+  be up (11s)
+       http_req_failed
+       created_201....................: 1      0.027736/s
+       http_req_duration..............: avg=97.41ms min=9.07ms med=74.57ms max=934.24ms p(90)=158.76ms p(95)=213.53ms
+       http_req_failed................: 0.00%  0 out of 6206
+       http_reqs......................: 6206   172.127409/s
+   RESERVED rows: 1
+
+[예약 동시성] distributed
+  be up (11s)
+       http_req_failed
+       created_201....................: 1      0.027694/s
+       http_req_duration..............: avg=139.03ms min=4.92ms med=110.79ms max=979.52ms p(90)=220.96ms p(95)=282.44ms
+       http_req_failed................: 0.00%  0 out of 4355
+       http_reqs......................: 4355   120.607948/s
+   RESERVED rows: 1
+
+[홀딩 러시]
+  be up (11s)
+       http_req_failed
+       held_201.......................: 1      0.028123/s
+       http_req_duration..............: avg=117.33ms min=6.31ms med=92.61ms max=1.28s p(90)=230.73ms p(95)=292.36ms
+       http_req_failed................: 0.00%  0 out of 5152
+       http_reqs......................: 5152   144.888823/s
+
+[룸 조회] cache=redis
+  be up (10s)
+       http_req_failed
+       http_req_duration..............: avg=42.83ms min=1.55ms med=33.91ms max=1.19s p(90)=73.12ms p(95)=102.31ms
+       http_req_failed................: 0.00%  0 out of 20949
+       http_reqs......................: 20949  693.487732/s
+
+[룸 조회] cache=none
+  be up (11s)
+       http_req_failed
+       http_req_duration..............: avg=92.03ms  min=3.3ms   med=72.29ms  max=679.94ms p(90)=165.92ms p(95)=225.25ms
+       http_req_failed................: 0.00%  0 out of 9775
+       http_reqs......................: 9775   324.215496/s
+
+[랭킹 조회]
+  be up (11s)
+       http_req_failed
+       http_req_duration..............: avg=61.06ms  min=2.13ms med=28.12ms max=1.54s p(90)=139.82ms p(95)=179.43ms
+       http_req_failed................: 0.00%  0 out of 14729
+       http_reqs......................: 14729  483.626918/s
+
+[구독 조회]
+  be up (12s)
+       http_req_failed
+       http_req_duration..............: avg=58.54ms  min=3.42ms med=44.57ms max=653.08ms p(90)=114.18ms p(95)=146.49ms
+       http_req_failed................: 0.00%  0 out of 10235
+       http_reqs......................: 10235  336.539276/s
+
+================ 완료 ================

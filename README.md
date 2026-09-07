@@ -290,7 +290,10 @@ k6 로 각 시나리오를 한 환경에서 재측정한 종합 비교는 [`docs
 | 알림 발행 (fire-and-forget) | 엔드포인트 p95 ~27 ms (팬아웃 규모 무관) · `failure-rate 0.3` → DLT 0.79 % |
 
 > 로컬 개발 머신 측정 — 절대 수치는 실행마다 흔들리므로 **같은 표 안의 상대 비교**가 핵심.
+> AWS EC2(t3.medium) 재측정 대조도 [`docs/performance.md`](./docs/performance.md) 에 있다
+> (절대 처리량은 오히려 낮았고 — 2 vCPU 에 전부 얹은 탓 — 상대 패턴은 동일).
 
-## 다음 단계
+## 로드맵
 
-로드맵 완료. 남은 것: AWS EC2(앱 전용)에서 동일 스크립트 재측정해 로컬 대비 표 보강.
+1~10단계 모두 `main` 병합. 단계별 설계·트러블슈팅은 [`docs/troubleshooting.md`](./docs/troubleshooting.md),
+성능 수치는 [`docs/performance.md`](./docs/performance.md), 배포는 [`docs/deploy/`](./docs/deploy/).

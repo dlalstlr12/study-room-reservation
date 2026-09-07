@@ -115,10 +115,11 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 
 | 전략 | 오버부킹 | 처리량(req/s) | p95 |
 |---|---|---|---|
-| `none` | **20건 (버그)** | 477 | 18ms |
-| `pessimistic` (기본값) | 1건 | 344 | 63ms |
-| `distributed` (Redisson) | 1건 | 143 | 155ms |
+| `none` | **10건 (버그)** | 761 | 49ms |
+| `pessimistic` (기본값) | 1건 | 334 | 83ms |
+| `distributed` (Redisson) | 1건 | 127 | 205ms |
 
+- 20 VU, 같은 룸·같은 슬롯. 락 없으면 10배 오버부킹, 나머지는 정확히 1건. 전체 비교: [`docs/performance.md`](./docs/performance.md)
 - 재현/검증: `backend/src/test/java/com/studyroom/reservation/concurrency/` (Testcontainers)
 - 부하테스트: `docker run --rm -i grafana/k6 run - < backend/load-test/reservation-conflict.js`
 
@@ -130,7 +131,7 @@ DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하�
 
 | 대상 | 캐시 없음 | Redis 캐싱 |
 |---|---|---|
-| `GET /rooms` + `/rooms/{id}/schedule` (30 VU) | p95 68ms · 738 req/s | p95 34ms · 1,700 req/s |
+| `GET /rooms` + `/rooms/{id}/schedule` (30 VU) | p95 81ms · 408 req/s | p95 36ms · 1,837 req/s |
 
 - 예약·홀딩 시간은 30분 슬롯 고정. 룸 페이지는 룸 클릭 → 예약 현황 타임라인.
 - 재현/검증: `backend/src/test/java/com/studyroom/reservation/hold/`, `.../schedule/`, `.../common/cache/`
@@ -276,6 +277,20 @@ Render(백엔드)·Vercel(프론트) 자동 재배포.
 
 설정 절차: [`deploy/RENDER.md`](deploy/RENDER.md)
 
+## 성능 (로드맵 10단계)
+
+k6 로 각 시나리오를 한 환경에서 재측정한 종합 비교는 [`docs/performance.md`](./docs/performance.md).
+헤드라인만:
+
+| 시나리오 | 결과 |
+|---|---|
+| 예약 동시성 (락 없음 → 비관적 → 분산) | 오버부킹 10 → 1 → 1 · 처리량 761 → 334 → 127 req/s |
+| 룸 조회 (캐시 off → on) | 408 → 1,837 req/s · p95 81 → 36 ms |
+| 랭킹 조회 (Redis ZSet 직결) | 1,423 req/s · p95 59 ms |
+| 알림 발행 (fire-and-forget) | 엔드포인트 p95 ~27 ms (팬아웃 규모 무관) · `failure-rate 0.3` → DLT 0.79 % |
+
+> 로컬 개발 머신 측정 — 절대 수치는 실행마다 흔들리므로 **같은 표 안의 상대 비교**가 핵심.
+
 ## 다음 단계
 
-로드맵 10단계: 부하테스트 수치화, README·트러블슈팅 문서 최종 정리.
+로드맵 완료. 남은 것: AWS EC2(앱 전용)에서 동일 스크립트 재측정해 로컬 대비 표 보강.

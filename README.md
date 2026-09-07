@@ -1,299 +1,233 @@
 # 스터디룸 예약 시스템
 
-예약 + 이벤트 추첨 + 알림 + 실시간 랭킹 + 정기 구독권을 하나의 도메인으로 묶은 백엔드 포트폴리오 프로젝트입니다.
-
-전체 설계와 개발 로드맵은 [`docs/roadmap.md`](./docs/roadmap.md)를 참고하세요.
-
-## 라이브 데모
+스터디룸 예약을 중심으로 **이벤트 추첨 · 알림 · 실시간 랭킹 · 정기 구독권**이 파생되는 백엔드 포트폴리오.
+"예약"이라는 하나의 도메인 이벤트가 4개 하위 시스템으로 전파되는 구조 위에서
+**동시성 제어 · 캐싱 · 비동기 메시징 · 배치 · 실시간 통신**을 다룬다.
 
 | | |
 |---|---|
-| 웹 | https://study-room-reservation-five.vercel.app |
-| API (Swagger) | https://study-room-backend-vyqc.onrender.com/swagger-ui.html |
-| 데모 관리자 | `admin@studyroom.local` / `admin1234` |
+| 🔗 라이브 데모 | https://study-room-reservation-five.vercel.app |
+| 📖 API (Swagger) | https://study-room-backend-vyqc.onrender.com/swagger-ui.html |
+| 🔑 데모 관리자 | `admin@studyroom.local` / `admin1234` |
+| 📚 문서 | [트러블슈팅](./docs/troubleshooting.md) · [성능 측정](./docs/performance.md) · [전체 설계](./docs/roadmap.md) |
 
-> 백엔드는 Render 무료 플랜이라 15분간 요청이 없으면 잠듭니다. **첫 접속 시 서버가 깨어나는 데 30초~1분** 걸릴 수 있습니다(대시보드의 "백엔드 상태"가 "운영 중"이 되면 준비 완료). 구성: 프론트 Vercel · 백엔드 Render · MySQL TiDB Cloud · Redis Upstash · Kafka Confluent Cloud.
+> 백엔드는 Render 무료 플랜이라 15분 무접속 시 잠든다. **첫 접속은 30초~1분** 걸릴 수 있고,
+> 대시보드의 "백엔드 상태"가 *운영 중* 이 되면 준비 완료.
 
-## 구조
+---
 
+## 한눈에
+
+- **무엇** — Spring Boot 3 / Java 17 백엔드 + 기능 시연용 React 프론트. 1인 개발.
+- **다루는 것** — 기능마다 *문제 재현 → 단계적 해결 → 수치로 증명* 의 과정을 [문서](./docs/troubleshooting.md)로 남겼다.
+
+| 관심사 | 접근 | 근거 |
+|---|---|---|
+| 동시성 (오버부킹) | 락 없음 → DB 비관적 락 → Redisson 분산 락, 3전략 부하 비교 | 오버부킹 **10 → 1 → 1건**, 처리량 761 → 334 → 127 req/s |
+| 캐싱 · 좌석 홀딩 | Redis TTL 홀딩 + keyspace 이벤트·스케줄러 백스톱, 조회 캐싱 | 룸 조회 처리량 **4.5배**, p95 81 → 36ms |
+| 비동기 메시징 | Kafka + `@RetryableTopic` 지수 백오프 → DLT, `dedup_key` 멱등 | 공지 발행 p95 **~27ms**(팬아웃 무관), `failure-rate 0.3` → DLT 0.79% ≈ 0.3⁴ |
+| 배치 · 멱등 | Spring Batch 정기결제 + **트랜잭션 아웃박스**(`FOR UPDATE SKIP LOCKED`) + `idempotency_key` | 동시 8스레드 → 결제 정확히 1건, 배치 50건 ~1.1s |
+| 실시간 | WebSocket/STOMP 룸 현황 브로드캐스트, 추첨 결과 발표 | 구독자 20 기준 발행~수신 p95 ~70ms |
+
+- **테스트** — 단위 + Testcontainers(MySQL·Redis·Kafka) 통합 + 동시성(`ExecutorService`) + k6 부하.
+- **배포** — GitHub Actions CI, AWS EC2 1회성 검증(비용 $0.01) 후 삭제, 상시 데모는 무료 티어 조합.
+
+---
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+    C[Client / WebSocket] --> API[Spring Boot API]
+    API --> DB[(MySQL)]
+    API --> R[(Redis)]
+    API -- "커밋 후 발행" --> K[Kafka]
+    B["Spring Batch 정기결제"] -- "트랜잭션 아웃박스" --> K
+    K --> NW[알림 워커]
+    K --> RW[랭킹 워커]
+    NW --> WS[WebSocket 푸시]
+    RW --> R
+    B --> DB
 ```
-study-room-reservation/
-├── backend/   # Spring Boot 3 (Java 17) — Gradle Kotlin DSL
-├── frontend/  # React + TypeScript (Vite)
-└── docs/      # 설계 문서 (로드맵, 추후 트러블슈팅 기록 등)
-```
 
-## 왜 React + TypeScript(Vite)인가
+- **Redis** — 좌석 홀딩 TTL · Redisson 분산 락 · 랭킹 Sorted Set · 조회 캐시
+- **Kafka** — 알림(`@RetryableTopic` → DLT) · 랭킹 집계 · 구독 이벤트, 세 스트림
+- 도메인 이벤트는 트랜잭션 커밋 이후 발행하고, 결제처럼 유실이 치명적인 경로는
+  **트랜잭션 아웃박스**(`FOR UPDATE SKIP LOCKED`)로 커밋과 발행을 잇는다.
 
-이 프로젝트의 중심은 백엔드(동시성 제어, 캐싱, 메시징, 배치)이고 프론트는 기능을 검증·시연하는 역할입니다. Next.js는 SSR/라우팅 등 백엔드와 무관한 설정이 늘어나 포트폴리오의 초점을 흐릴 수 있어 제외했습니다. Vite + React + TypeScript 조합은,
+## 기술 스택
 
-- 설정이 가볍고 개발 서버 기동이 빨라 백엔드 API·WebSocket 연동 확인에 집중하기 좋고
-- 예약 현황판(WebSocket 실시간 갱신), 랭킹 보드, 당첨자 발표처럼 **상태가 자주 바뀌는 화면**을 다루기에 React의 컴포넌트/상태 모델이 자연스러우며
-- TypeScript로 백엔드 DTO와 타입을 맞춰가는 과정 자체가 API 설계 실력을 보여주는 요소가 됩니다.
-
-## 로컬 실행
-
-### 1. 인프라 (MySQL, Redis)
-```bash
-docker compose up -d
-```
-
-### 2. 백엔드
-```bash
-cd backend
-./gradlew bootRun
-```
-> Windows PowerShell에서는 `.\gradlew bootRun`으로 실행하고, `&&` 대신 명령을 줄 단위로 나눠 실행하세요. Gradle Wrapper(8.10.2)는 `backend/gradle/wrapper/`에 포함돼 있어 별도 설치가 필요 없습니다.
-
-### 3. 프론트엔드
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## 초기 상태 확인
-
-- 백엔드 헬스체크: http://localhost:8080/api/health
-- Swagger UI: http://localhost:8080/swagger-ui.html
-- 프론트: http://localhost:5173
-
-## 프론트엔드 (단계별 기능 시연)
-
-각 로드맵 단계에서 추가된 백엔드 기능을 화면에서 직접 확인하는 데모 앱입니다.
-백엔드 주소는 `frontend/.env`의 `VITE_API_BASE_URL`(기본 `http://localhost:8080`)로 지정합니다.
-
-| 경로 | 내용 |
+| 분류 | 사용 |
 |---|---|
-| `/` 대시보드 | 백엔드 헬스 상태, 룸/내 예약 통계, 단계별 기능 링크 |
-| `/signup` `/login` | 회원가입·로그인, 토큰은 localStorage 저장 후 401 시 리프레시로 자동 재발급 |
-| `/rooms` | 룸 목록 (공개). ADMIN은 생성·수정·삭제 |
-| `/rooms/:id` | 룸 예약 현황 타임라인(날짜별 예약·홀딩), 30분 슬롯 홀딩 → 카운트다운 → 확정 |
-| `/reservations` | (로그인 필요) 내 홀딩(확정/해제)·내 예약 목록·취소 |
+| 언어 · 프레임워크 | Java 17, Spring Boot 3.3.4, Gradle (Kotlin DSL) |
+| 인증 | Spring Security + JWT (access + Redis refresh 회전) |
+| 영속성 | JPA / Hibernate 6, Flyway, MySQL 8 |
+| 캐시 · 락 | Redis 7, Redisson (분산 락 · TTL · Sorted Set) |
+| 메시징 | Kafka 3.8, spring-kafka (`@RetryableTopic` → DLT), 트랜잭션 아웃박스 |
+| 배치 | Spring Batch (`JpaCursorItemReader`, `faultTolerant().skip()`) |
+| 실시간 | WebSocket (STOMP, 네이티브) |
+| 테스트 · 부하 | JUnit5, Mockito, Testcontainers, k6 |
+| 인프라 | Docker, GitHub Actions, AWS EC2 · Render · Vercel · TiDB Cloud · Upstash · Confluent Cloud |
 
-> CORS: 백엔드는 `app.cors.allowed-origins`(기본 `http://localhost:5173,http://localhost:5174`)만 허용합니다.
+---
 
-## API (로드맵 1단계 — 코어 도메인)
+## 설계 하이라이트
 
-DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리하고, `local` 프로파일에서는
-`LocalDataInitializer`가 데모 데이터를 시드합니다.
+각 항목은 [`docs/troubleshooting.md`](./docs/troubleshooting.md) 에 *문제 → 원인 → 해결 → 검증* 타임라인으로 정리돼 있다.
 
-- **데모 관리자 계정**: `admin@studyroom.local` / `admin1234` (룸 생성·수정·삭제 권한)
+### 동시성 — 오버부킹
 
-| 메서드 | 경로 | 권한 |
-|---|---|---|
-| POST | `/api/auth/signup` | 공개 |
-| POST | `/api/auth/login` | 공개 — accessToken/refreshToken 발급 |
-| POST | `/api/auth/reissue` | 공개 — 리프레시 토큰 회전 |
-| POST | `/api/auth/logout` | 인증 |
-| GET | `/api/members/me` | 인증 |
-| GET | `/api/rooms`, `/api/rooms/{id}` | 공개 |
-| GET | `/api/rooms/{id}/schedule?date=` | 공개 — 날짜별 예약·홀딩 현황 |
-| POST/PUT/DELETE | `/api/rooms`, `/api/rooms/{id}` | ADMIN |
-| POST | `/api/reservations` | 인증 (동시성 제어 — 아래 참고) |
-| GET | `/api/reservations/me` | 인증 |
-| GET | `/api/reservations/{id}` | 인증 (본인 또는 ADMIN) |
-| POST | `/api/reservations/{id}/cancel` | 인증 (본인) |
-| POST | `/api/reservations/holds` | 인증 — 좌석 홀딩 (TTL 10분) |
-| GET | `/api/reservations/holds/me` | 인증 |
-| POST | `/api/reservations/holds/{roomId}/{holdId}/confirm` | 인증 — 홀딩 → 예약 확정 |
-| DELETE | `/api/reservations/holds/{roomId}/{holdId}` | 인증 — 홀딩 해제 |
+락 없는 예약 생성에서 **같은 룸·겹치는 시간에 예약 여러 건**이 재현됐다(check-then-act 레이스).
+`reservation.lock.strategy` 로 전략을 바꿔가며 부하로 비교했다.
 
-### Swagger로 인증 테스트
-
-1. `POST /api/auth/login`으로 토큰을 받습니다.
-2. Swagger UI 우측 상단 **Authorize**에 `accessToken` 값을 붙여넣습니다(접두어 `Bearer` 제외).
-3. 인증이 필요한 엔드포인트를 그대로 실행합니다.
-
-> `jwt.secret`은 `application-local.yml`에 개발용으로만 들어 있습니다(최소 32바이트).
-> 운영 배포 시 환경변수 등으로 반드시 교체하세요.
-
-## 동시성 제어 (로드맵 2단계)
-
-락 없는 예약 생성에서 오버부킹(같은 룸·겹치는 시간에 예약 여러 건)이 재현됐다.
-`reservation.lock.strategy`로 전략을 전환하며 해결·비교했다. 전 과정: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
-
-| 전략 | 오버부킹 | 처리량(req/s) | p95 |
+| 전략 | 오버부킹 | 처리량 | p95 |
 |---|---|---|---|
-| `none` | **10건 (버그)** | 761 | 49ms |
-| `pessimistic` (기본값) | 1건 | 334 | 83ms |
-| `distributed` (Redisson) | 1건 | 127 | 205ms |
+| `none` | **10건 (버그)** | 761 req/s | 49ms |
+| `pessimistic` (DB 비관적 락, 기본값) | 1건 | 334 req/s | 83ms |
+| `distributed` (Redisson) | 1건 | 127 req/s | 205ms |
 
-- 20 VU, 같은 룸·같은 슬롯. 락 없으면 10배 오버부킹, 나머지는 정확히 1건. 전체 비교: [`docs/performance.md`](./docs/performance.md)
-- 재현/검증: `backend/src/test/java/com/studyroom/reservation/concurrency/` (Testcontainers)
-- 부하테스트: `docker run --rm -i grafana/k6 run - < backend/load-test/reservation-conflict.js`
+- 단일 핫키(한 룸·한 슬롯) 20 VU. 비관적 락은 정합성 대가로 처리량 -56%, 분산 락은 -83%
+  (요청마다 Redis 왕복 2회) — 대신 **앱 다중화 시** DB 락 경합이 사라진다. 배포 형태가 단일
+  인스턴스라 기본값은 `pessimistic`.
+- 검증: `backend/src/test/.../reservation/concurrency/` (Testcontainers) · `load-test/reservation-conflict.js`
 
-## 캐싱 · 홀딩 (로드맵 3단계)
+### 캐싱과 좌석 홀딩
 
-락으로도 "룸 선택 후 확정까지의 몇 분"은 못 잡는다. **Redis TTL 홀딩**(10분)으로 확정 유예를 주고,
-만료는 **keyspace 이벤트 + 스케줄러 백스톱**으로 처리한다(이벤트는 신뢰성 보장 X). 룸 목록·현황은
-**Redis 캐싱**. 전 과정: [`docs/troubleshooting.md`](./docs/troubleshooting.md).
+락으로도 "룸을 고르고 확정하기까지의 몇 분"은 못 잡는다. **Redis TTL 홀딩**(10분)으로 확정 유예를 주고,
+만료는 keyspace 만료 이벤트 + 스케줄러 백스톱으로 처리한다(이벤트는 신뢰성 보장 X). 룸 목록·현황은 Redis 캐싱.
 
-| 대상 | 캐시 없음 | Redis 캐싱 |
+| `GET /rooms` + `/rooms/{id}/schedule` (30 VU) | 캐시 없음 | Redis 캐싱 |
 |---|---|---|
-| `GET /rooms` + `/rooms/{id}/schedule` (30 VU) | p95 81ms · 408 req/s | p95 36ms · 1,837 req/s |
+| 처리량 | 408 req/s | **1,837 req/s** |
+| p95 | 81ms | 36ms |
 
-- 예약·홀딩 시간은 30분 슬롯 고정. 룸 페이지는 룸 클릭 → 예약 현황 타임라인.
-- 재현/검증: `backend/src/test/java/com/studyroom/reservation/hold/`, `.../schedule/`, `.../common/cache/`
-- 부하테스트: `backend/load-test/holding-rush.js`, `backend/load-test/room-read.js`
+- 검증: `.../reservation/hold/`, `.../schedule/`, `.../common/cache/` · `load-test/holding-rush.js`, `room-read.js`
 
-## 실시간 (로드맵 4단계)
+### 실시간 브로드캐스트
 
-룸 현황을 바꾸는 이벤트(홀딩 생성/확정/해제, 예약 생성/취소, 홀딩 TTL 만료)를 그 룸을 보고 있는
-모든 클라이언트에 **WebSocket으로 즉시 브로드캐스트**한다. 클라이언트는 알림을 받으면 현황을
-다시 조회해 타임라인을 갱신한다 — 새로고침 없이.
+룸 현황을 바꾸는 이벤트(홀딩·예약·TTL 만료)를 그 룸을 보는 모든 클라이언트에 WebSocket 으로 즉시 알린다.
+변경 지점은 `RoomChangeNotifier` 한 곳으로 모여 있어 발행 훅만 얹었다. 페이로드는 `{roomId, actorMemberId, at}`
+— "바뀌었다"만 알리고 델타는 안 싣는다.
 
-- 엔드포인트: `ws://<host>/ws` (네이티브 WebSocket, STOMP). 구독: `/topic/rooms/{roomId}`
-- 페이로드 `RoomChangeEvent {roomId, actorMemberId, at}` — "이 룸이 바뀌었다"만 알린다(델타 비탑재)
-- 변경 지점은 3단계에서 만든 `RoomChangeNotifier` 한 곳으로 모여 있어 발행만 얹었다
-- 브로드캐스트 지연: 단일 인스턴스 SimpleBroker, 구독자 20 기준 발행~수신 p95 ≈ 70ms
-- 재현/검증: `backend/src/test/java/com/studyroom/realtime/` (STOMP 통합 + 지연 측정)
+- 구독 `/topic/rooms/{roomId}`, 단일 인스턴스 SimpleBroker, 발행~수신 p95 ~70ms (구독자 20)
+- 검증: `.../realtime/` (STOMP 통합 + 지연 측정)
 
-프론트: 룸 상세(`/rooms/:id`)에서 자동 구독, 헤더에 연결 상태 표시. 두 창을 띄워 한쪽에서
-홀딩하면 다른 쪽 타임라인이 즉시 갱신되는 것을 볼 수 있다.
+### 비동기 알림 — 재시도 · DLT
 
-## 이벤트 추첨 (로드맵 5단계)
-
-**현재 이용 중인 회원**(추첨 시점 `RESERVED` 이면서 그 순간이 이용 시간대) 또는 **전체 회원** 중에서
-ADMIN이 추첨한다. 추첨은 **재현 가능**하다 — `SecureRandom` 시드를 `lottery_events.seed` 에 기록하고,
-후보를 memberId로 정렬한 뒤 `new Random(seed)` 로 섞는다. 같은 (후보, seed, 인원)이면 언제든 같은
-당첨자가 나온다.
-
-- 동시성: `draw()` 는 Redisson 락 + `SCHEDULED → DRAWN` 가드 → 중복 클릭·다중 인스턴스에도 1회
-- 발표: `@TransactionalEventListener(AFTER_COMMIT)` → `/topic/lottery/{id}` WebSocket 브로드캐스트
-  (롤백 시 오발표 방지, 6단계에서 Kafka 발행 훅이 됨)
-- 공정성 분포: 후보 10·당첨 1·10,000회 → 후보별 당첨 950~1,038 (기대 1,000)
-- API: `POST /api/lottery/events`(ADMIN), `GET /api/lottery/events`,
-  `POST /api/lottery/events/{id}/draw`(ADMIN), `DELETE /api/lottery/events/{id}`(ADMIN)
-- 재현/검증: `backend/src/test/java/com/studyroom/lottery/`
-- 프론트: `/lottery` — 이벤트 목록·내 결과, "당첨자 확인하기" 토글, ADMIN 삭제, 추첨 결과 실시간 발표
-
-## 비동기 알림 (로드맵 6단계)
-
-추첨 결과와 전체 공지를 **Kafka**로 발행하고, 워커가 소비해 알림 이력을 남기고 실시간으로 밀어준다.
-추첨 트랜잭션은 커밋 후 발행만 하므로(`@TransactionalEventListener(AFTER_COMMIT)`), 추첨 응답
-시간은 대상 회원 수와 무관하다.
+추첨 결과와 전체 공지를 Kafka 로 발행하고 워커가 소비한다. 추첨 트랜잭션은 커밋 후 발행만 하므로
+(`@TransactionalEventListener(AFTER_COMMIT)`) 추첨 응답 시간은 대상 회원 수와 무관하다.
 
 ```
-추첨/공지 ─▶ Kafka notification-events ─▶ 워커 ─┬─ dedup_key 멱등 저장 (notifications)
-                                                ├─ 발송 (실패 시 재시도)
-                                                └─ WebSocket /topic/notifications/{memberId}
-   실패 4회 ─▶ -retry-500 → -retry-1000 → -retry-2000 → -dlt ─▶ 이력 FAILED
+추첨/공지 ─▶ notification-events ─▶ 워커 ─┬─ dedup_key 멱등 저장
+                                          ├─ 발송 (실패 시 재시도)
+                                          └─ WebSocket /topic/notifications/{memberId}
+  실패 4회 ─▶ -retry-500 → -retry-1000 → -retry-2000 → -dlt ─▶ 이력 FAILED
 ```
 
-- 멱등: `dedup_key`(`lottery:{eventId}:{memberId}`) UNIQUE + 저장 전 조회 → at-least-once 재처리에도 1건
-- 재시도/격리: `@RetryableTopic` 지수 백오프(0.5s→1s→2s) → 소진 시 DLT + `@DltHandler`
-- 발송 장애 시뮬레이션: `notification.delivery.failure-rate` (0.3 → DLT 유입 ~0.9%)
-- 수치: 공지 발행 p50 15ms(회원 수 무관), 232건 팬아웃 end-to-end ~3.8s, 워커 ~400 msg/s
-- API: `GET /api/notifications`, `/unread-count`, `POST /api/notifications/{id}/read`,
-  `/read-all`, `/announcements`(ADMIN)
-- 재현/검증: `backend/src/test/java/com/studyroom/notification/`
-- 프론트: topbar 알림 벨(안읽음 배지·실시간 수신), `/notifications` 이력 페이지, ADMIN 전체 공지 폼
+- 멱등 `dedup_key` UNIQUE + 저장 전 조회 → at-least-once 재처리에도 1건
+- `notification.delivery.failure-rate=0.3` → DLT 최종 격리율 0.79% ≈ 이론값 `0.3⁴`
+- 검증: `.../notification/` (멱등·재시도/DLT는 전용 토픽으로 격리)
 
-## 실시간 랭킹 (로드맵 7단계)
+### 실시간 랭킹 — Redis Sorted Set
 
-퇴실한 이용시간을 회원별로 누적해 순위를 낸다. 갱신·조회 모두 **Redis Sorted Set** 이라
-이력이 쌓여도 O(log N).
+퇴실 이용시간을 회원별로 누적한다. 갱신·조회 모두 Sorted Set 이라 이력이 쌓여도 O(log N).
 
 ```
-퇴실(수동 버튼 / endAt 지난 예약 자동) ─(AFTER_COMMIT)─▶ Kafka usage-events ─▶ 랭킹 워커
+퇴실 ─(AFTER_COMMIT)─▶ usage-events ─▶ 랭킹 워커
    ├─ usage_logs 저장 (reservation_id UNIQUE = 멱등)
-   ├─ ZINCRBY ranking:all
-   └─ ZINCRBY ranking:daily:{yyyy-MM-dd} (TTL 48h → 자정 리셋 배치 불필요)
+   └─ ZINCRBY ranking:all / ranking:daily:{date} (TTL 48h → 자정 배치 불필요)
 조회: GET /api/rankings ─▶ ZREVRANGE (DB 집계 없음)
 ```
 
-- 원자성: `ZINCRBY` 단일 명령 → 동시 갱신에도 정확 (동시성 테스트: 10스레드×20회 → 정확히 200)
-- 멱등: `usage_logs.reservation_id` UNIQUE → at-least-once 재처리에도 점수 1회만
+- 원자성: `ZINCRBY` 단일 명령 → 동시 갱신에도 정확 (10스레드 × 20회 → 정확히 200)
 - 복구: Redis 유실 시 `POST /api/rankings/rebuild`(ADMIN) 가 `usage_logs` 합계로 재구축
-- 수치: `GET /api/rankings` p50 12ms / `/me` p50 4ms (순수 Redis). DB 집계는 이력 수에 비례
-- API: `GET /api/rankings?scope=all|daily`, `/me`, `POST /rebuild`(ADMIN),
-  `POST /api/reservations/{id}/checkout`
-- 두 이벤트 스트림(`notification-events` / `usage-events`)을 리스너별 컨테이너 팩토리로 타입 분리
-- 재현/검증: `backend/src/test/java/com/studyroom/ranking/`
-- 프론트: `/ranking` — 전체/오늘 탭, 상위 20(메달), 내 순위 카드; 내 예약에 "퇴실" 버튼
+- `GET /api/rankings` p50 12ms / `/me` p50 4ms (순수 Redis)
+- `notification-events` / `usage-events` 두 스트림을 리스너별 컨테이너 팩토리로 타입 분리
 
-## 정기 구독권 (로드맵 8단계)
+### 정기결제 — Spring Batch · 트랜잭션 아웃박스 · 멱등
 
-PRO 구독료를 **Spring Batch**로 매일 정기 결제한다. 결제·상태변경·이벤트 발행을 **트랜잭션
-아웃박스**로 묶어, 6·7단계가 남긴 "발행 자체 유실" 틈을 메운다.
+PRO 구독료를 매일 정기 결제한다. 결제·상태변경·이벤트 발행을 **한 트랜잭션**으로 묶어,
+`@TransactionalEventListener` 뒤 브로커가 죽으면 메시지가 유실되던 틈을 메운다.
 
 ```
-매일 자정 / ADMIN 수동 ─▶ Spring Batch dailyBillingJob (건별 REQUIRES_NEW 커밋)
+자정 / ADMIN 수동 ─▶ dailyBillingJob (건별 REQUIRES_NEW 커밋)
   한 트랜잭션: payments 저장 + subscription renew/PAST_DUE + outbox_events 저장
-OutboxRelay (2초 폴, FOR UPDATE SKIP LOCKED) ─▶ Kafka subscription-events ─▶ published_at
-SubscriptionEventConsumer ─▶ 6단계 알림 파이프라인 (notifications + WebSocket 푸시)
+OutboxRelay (2초 폴, FOR UPDATE SKIP LOCKED) ─▶ subscription-events ─▶ published_at
 ```
 
-- 멱등: `payments.idempotency_key`(`sub:{id}:{yyyy-MM}`) UNIQUE → 배치 재실행·중복 스케줄에도 1건
-  (동시성 테스트: 8스레드 → 결제 1건)
-- 유실 방지: 커밋됐다면 이벤트는 outbox에 있고, 브로커가 죽어도 릴레이가 재시도
-- 배치 내결함성: `REQUIRES_NEW` + `faultTolerant().skip()` → 실패 건만 PAST_DUE
-- 도메인 연계: ACTIVE PRO 회원은 홀딩 유예 20분 (기본 10분) — `HoldTtlPolicy` 포트
-- 수치: 배치 50건 ~1.1s, 아웃박스 드레인 < 4s
-- API: `GET/POST /api/subscriptions`, `/cancel`, `/me/payments`, `POST /api/admin/billing/run`(ADMIN)
-- 재현/검증: `backend/src/test/java/com/studyroom/subscription/`
-- 프론트: `/subscription` — 플랜 카드, PRO 구독/해지, 결제 이력, ADMIN 배치 실행
+- 멱등 `payments.idempotency_key`(`sub:{id}:{yyyy-MM}`) UNIQUE → 배치 재실행·중복 스케줄에도 1건
+  (동시 8스레드 → 결제 정확히 1건)
+- 내결함성 `REQUIRES_NEW` + `faultTolerant().skip()` → 실패 건만 `PAST_DUE`, 나머지 정상
+- 도메인 연계: ACTIVE PRO 회원은 홀딩 유예 20분 (`HoldTtlPolicy` 포트로 예약↔구독 결합 회피)
+- 배치 50건 ~1.1s, 아웃박스 드레인 < 4s · 검증: `.../subscription/` (`@SpringBatchTest` 포함)
 
-## 인프라 · CI/CD (로드맵 9단계)
+---
 
-### GitHub Actions CI
+## 성능
 
-`main` push·PR 마다 [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+k6 로 6개 시나리오를 한 환경에서 재측정한 종합 비교: [`docs/performance.md`](./docs/performance.md).
 
-- **backend** — `gradlew build` (Testcontainers MySQL·Redis·Kafka 로 통합 테스트 포함)
-- **frontend** — `npm run build` (타입체크 + 프로덕션 번들)
-- **docker** — 위 둘 통과 시 배포 이미지 빌드
+| 시나리오 | 로컬 (처리량 / p95) | AWS EC2 t3.medium |
+|---|---|---|
+| 예약 `none` / `pessimistic` / `distributed` | 761 / 334 / 127 req/s | 197 / 172 / 121 req/s |
+| 룸 조회 캐시 off → on | 408 → 1,837 req/s | 324 → 693 req/s |
+| 랭킹 조회 | 1,423 req/s · p95 59ms | 484 req/s · p95 179ms |
 
-### AWS EC2 배포 검증 (1회성)
+> **절대 수치는 측정 환경에 종속** — t3.medium(2 vCPU)에 앱·인프라·k6 를 다 얹으니 로컬 개발 PC보다
+> 오히려 낮았다. 신뢰할 수 있는 건 *같은 표 안의 상대 비교*(락 전략 격차, 캐시 배수)뿐이라는 것도
+> 측정으로 확인했다.
 
-전체 스택(MySQL·Redis·Kafka·Spring Boot·nginx)을 EC2 t3.medium 한 대에 `docker compose`로
-올려 실제 동작을 확인했다. 비용 최소화를 위해 검증 후 인스턴스·볼륨을 **완전히 삭제**했고,
-상시 데모는 아래 관리형 무료 티어로 운영한다.
+---
 
-```
-cloud-init(Docker+swap+clone) ─▶ deploy/deploy.sh (IMDSv2 로 퍼블릭 IP 감지 → up --build)
-  ─▶ deploy/verify.sh 엔드투엔드 16종 PASS
-  ─▶ 앱·Kafka UI·Swagger 캡처 ─▶ terminate-instances (볼륨 DeleteOnTermination)
-```
+## 인프라 & 배포
 
-- Ubuntu 24.04, `aws ec2 run-instances` ~ `terminate` 전 과정 CLI, 가동 ~10분, **1회성 약 $0.01**, 이후 $0
-- Flyway 8개 마이그레이션 자동 적용, `demo` 프로파일 시드(관리자·룸), Kafka 7토픽·컨슈머 lag 0
-- 근거: [`docs/deploy/`](docs/deploy/) (CLI 출력·부팅 로그·`verify.sh` 로그·Kafka 컨슈머 그룹)
+### CI
+
+`main` push · PR 마다 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — backend `gradlew build`
+(Testcontainers 통합 테스트 포함) / frontend 타입체크·빌드 / 배포 이미지 빌드.
+
+### AWS EC2 — 1회성 검증 후 삭제
+
+프리티어가 소진돼 상시 운영은 비용이 든다. 전체 스택(MySQL·Redis·Kafka·Spring Boot·nginx)을
+EC2 t3.medium 에 `docker compose` 로 올려 [`deploy/verify.sh`](deploy/verify.sh) 16종을 통과시킨 뒤
+**인스턴스·볼륨을 완전히 삭제**했다.
+
+- `aws ec2 run-instances` ~ `terminate` 전 과정 CLI, 가동 ~10분, **1회성 약 $0.01**, 이후 $0
+- 근거: [`docs/deploy/`](docs/deploy/) (CLI 출력·부팅 로그·`verify.sh` 로그·Kafka 컨슈머 그룹·teardown)
 - 절차: [`deploy/CHECKLIST.md`](deploy/CHECKLIST.md)
 
 ### 상시 무료 배포
 
-[라이브 데모](#라이브-데모)는 아래 무료 티어 조합으로 상시 운영된다. `main` push → GitHub Actions CI →
-Render(백엔드)·Vercel(프론트) 자동 재배포.
+상단의 라이브 데모는 무료 티어 조합으로 운영되고, `main` push 시 Render·Vercel 이 자동 재배포한다.
+서비스별로 실제로 마주친 이슈:
 
-| 레이어 | 서비스 | 비고 |
+| 레이어 | 서비스 | 마주친 것 |
 |---|---|---|
-| 프론트 | Vercel ([`frontend/vercel.json`](frontend/vercel.json)) | 같은 오리진 아님 → 실제 CORS 동작 |
-| 백엔드 | Render (Docker web, [`render.yaml`](render.yaml)) | 512MB/0.1CPU — 15분 유휴 시 슬립, 부팅 최적화(`lazy-init`, `TieredStopAtLevel=1`) 적용 |
-| MySQL | TiDB Cloud Serverless | Spring Batch 잡 격리수준 `READ_COMMITTED`(TiDB는 SERIALIZABLE 미지원) |
-| Redis | Upstash | TLS + Redisson 커넥션 풀 축소 |
-| Kafka | Confluent Cloud Basic | SASL_SSL/PLAIN, 토픽 7개 사전 생성 |
+| 프론트 | Vercel | 백엔드와 다른 오리진 → 실제 CORS · WebSocket 오리진 검증 |
+| 백엔드 | Render (Docker, 512MB/0.1CPU) | 콜드스타트 단축(`TieredStopAtLevel=1`, 커넥션 풀 축소), `PORT` 바인딩 |
+| MySQL | TiDB Cloud Serverless | `SERIALIZABLE` 미지원 → Batch 잡 격리수준 조정 |
+| Redis | Upstash | TLS 필수 → Redisson `rediss://` + 풀 상한 |
+| Kafka | Confluent Cloud Basic | SASL_SSL/PLAIN — 커스텀 컨슈머 팩토리에 공통 보안 설정 상속 누락 디버깅 |
 
 설정 절차: [`deploy/RENDER.md`](deploy/RENDER.md)
 
-## 성능 (로드맵 10단계)
+---
 
-k6 로 각 시나리오를 한 환경에서 재측정한 종합 비교는 [`docs/performance.md`](./docs/performance.md).
-헤드라인만:
+## 로컬 실행
 
-| 시나리오 | 결과 |
-|---|---|
-| 예약 동시성 (락 없음 → 비관적 → 분산) | 오버부킹 10 → 1 → 1 · 처리량 761 → 334 → 127 req/s |
-| 룸 조회 (캐시 off → on) | 408 → 1,837 req/s · p95 81 → 36 ms |
-| 랭킹 조회 (Redis ZSet 직결) | 1,423 req/s · p95 59 ms |
-| 알림 발행 (fire-and-forget) | 엔드포인트 p95 ~27 ms (팬아웃 규모 무관) · `failure-rate 0.3` → DLT 0.79 % |
+```bash
+docker compose up -d                 # MySQL(3307) · Redis · Kafka · kafka-ui(8085)
+cd backend && ./gradlew bootRun      # :8080  (Windows: .\gradlew)
+cd frontend && npm install && npm run dev   # :5173
+```
 
-> 로컬 개발 머신 측정 — 절대 수치는 실행마다 흔들리므로 **같은 표 안의 상대 비교**가 핵심.
-> AWS EC2(t3.medium) 재측정 대조도 [`docs/performance.md`](./docs/performance.md) 에 있다
-> (절대 처리량은 오히려 낮았고 — 2 vCPU 에 전부 얹은 탓 — 상대 패턴은 동일).
+- 헬스체크 http://localhost:8080/api/health · Swagger http://localhost:8080/swagger-ui.html
+- `local` 프로파일이 데모 관리자(`admin@studyroom.local` / `admin1234`)와 룸 4개를 시드한다.
+- DB 스키마는 Flyway(`backend/src/main/resources/db/migration`)가 관리. `jwt.secret` 은 `application-local.yml`
+  에 개발용으로만 들어 있으니 배포 시 환경변수로 교체한다.
 
-## 로드맵
+## 이 프로젝트에 대해
 
-1~10단계 모두 `main` 병합. 단계별 설계·트러블슈팅은 [`docs/troubleshooting.md`](./docs/troubleshooting.md),
-성능 수치는 [`docs/performance.md`](./docs/performance.md), 배포는 [`docs/deploy/`](./docs/deploy/).
+1인 포트폴리오. 백엔드가 중심이고 프론트(React + Vite)는 각 기능을 화면에서 확인하는 시연 도구다
+(관리자 전용 기능은 로그인 후 `/admin`). 로드맵 1~10단계 전부 `main` 병합 —
+단계별 배경은 [`docs/roadmap.md`](./docs/roadmap.md), 문제 해결 타임라인은 [`docs/troubleshooting.md`](./docs/troubleshooting.md).

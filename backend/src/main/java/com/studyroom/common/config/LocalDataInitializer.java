@@ -13,11 +13,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 로컬 개발/시연용 시드 데이터. {@code local} 프로파일에서만 동작하며 멱등하다.
+ * 로컬 개발/시연용 시드 데이터. {@code local}·{@code demo}(배포) 프로파일에서 동작하며 멱등하다.
  * 데모 관리자 계정: {@code admin@studyroom.local} / {@code admin1234}
+ * (포트폴리오 시연용이므로 계정 정보를 공개해도 무방하다.)
  */
 @Component
-@Profile("local")
+@Profile({"local", "demo"})
 public class LocalDataInitializer implements CommandLineRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(LocalDataInitializer.class);

@@ -13,11 +13,17 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
-	@Value("${spring.data.redis.host}")
+	@Value("${spring.data.redis.host:localhost}")
 	private String redisHost;
 
-	@Value("${spring.data.redis.port}")
+	@Value("${spring.data.redis.port:6379}")
 	private int redisPort;
+
+	@Value("${spring.data.redis.password:}")
+	private String redisPassword;
+
+	@Value("${spring.data.redis.ssl.enabled:false}")
+	private boolean redisSsl;
 
 	/**
 	 * 일반 캐싱(홀딩 상태, 룸 상태 등)에 사용할 RedisTemplate.
@@ -37,8 +43,12 @@ public class RedisConfig {
 	@Bean(destroyMethod = "shutdown")
 	public RedissonClient redissonClient() {
 		Config config = new Config();
-		config.useSingleServer()
-				.setAddress("redis://" + redisHost + ":" + redisPort);
+		String scheme = redisSsl ? "rediss://" : "redis://";
+		var server = config.useSingleServer()
+				.setAddress(scheme + redisHost + ":" + redisPort);
+		if (!redisPassword.isBlank()) {
+			server.setPassword(redisPassword);
+		}
 		return Redisson.create(config);
 	}
 }

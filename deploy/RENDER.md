@@ -24,12 +24,13 @@ Kafka   Confluent Cloud Basic         클러스터 요금 없음, 데모 트래�
 
 | key | value |
 |---|---|
-| `SPRING_DATASOURCE_URL` | `jdbc:mysql://<host>:4000/study_room?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3&serverTimezone=Asia/Seoul&characterEncoding=UTF-8` |
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://<host>:4000/study_room?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&sessionVariables=tidb_skip_isolation_level_check=1` |
 | `SPRING_DATASOURCE_USERNAME` | `<tidb user>` (형식: `xxxxxxxx.root`) |
 | `SPRING_DATASOURCE_PASSWORD` | `<password>` |
 
-> Flyway 가 부팅 시 `V1~V8` 마이그레이션을 자동 적용한다. 시드 데이터(데모 관리자·룸)는
-> `demo` 프로파일이 생성.
+> - `user:pass@` 를 URL 에 넣지 말 것 — MySQL JDBC 드라이버는 인증정보를 URL authority 로 못 받는다. username/password 는 별도 키.
+> - `sessionVariables=tidb_skip_isolation_level_check=1` 필수 — TiDB 는 `SERIALIZABLE` 격리수준을 지원하지 않아 Spring Batch 잡 생성이 실패한다. 이 세션변수로 무시하게 한다.
+> - Flyway 가 부팅 시 `V1~V8` 마이그레이션을 자동 적용한다. 시드 데이터(데모 관리자·룸)는 `demo` 프로파일이 생성.
 
 ---
 

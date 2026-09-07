@@ -28,6 +28,8 @@ public class RankingKafkaConfig {
 		Map<String, Object> config = new HashMap<>();
 		config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
 		config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+		// spring.kafka.properties.* (SASL_SSL·jaas 등 공통 보안 설정) 상속 — 관리형 브로커 접속에 필수
+		config.putAll(kafkaProperties.getProperties());
 
 		JsonDeserializer<UsageEventMessage> valueDeserializer =
 				new JsonDeserializer<>(UsageEventMessage.class);

@@ -25,6 +25,10 @@ public class RedisConfig {
 	@Value("${spring.data.redis.ssl.enabled:false}")
 	private boolean redisSsl;
 
+	/** Redisson 커넥션 풀 상한. 기본 64/idle 24는 프리티어(512MB)엔 과함. */
+	@Value("${redis.redisson.pool-size:8}")
+	private int redissonPoolSize;
+
 	/**
 	 * 일반 캐싱(홀딩 상태, 룸 상태 등)에 사용할 RedisTemplate.
 	 */
@@ -45,7 +49,11 @@ public class RedisConfig {
 		Config config = new Config();
 		String scheme = redisSsl ? "rediss://" : "redis://";
 		var server = config.useSingleServer()
-				.setAddress(scheme + redisHost + ":" + redisPort);
+				.setAddress(scheme + redisHost + ":" + redisPort)
+				.setConnectionMinimumIdleSize(1)
+				.setConnectionPoolSize(redissonPoolSize)
+				.setSubscriptionConnectionMinimumIdleSize(1)
+				.setSubscriptionConnectionPoolSize(Math.max(2, redissonPoolSize / 2));
 		if (!redisPassword.isBlank()) {
 			server.setPassword(redisPassword);
 		}

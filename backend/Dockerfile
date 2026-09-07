@@ -26,15 +26,16 @@ RUN apt-get update \
 
 COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
 
-# t3.micro(1GB)~t3.small(2GB) 대비 컨테이너 메모리에 맞춰 힙 상한
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:+UseSerialGC -Djava.security.egd=file:/dev/./urandom"
+# 512MB 프리티어(Render) ~ t3.small 대비: 컨테이너 메모리 비율 힙 + 빠른 기동
+# TieredStopAtLevel=1 = C2 컴파일러 생략 → 저사양 CPU 기동 시간 대폭 단축(피크 처리량은 포기)
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -Djava.security.egd=file:/dev/./urandom"
 ENV SPRING_PROFILES_ACTIVE=demo
 
 EXPOSE 8080
 USER app
 
 # 컨테이너 헬스체크(compose 의 healthcheck 와 별개로 이미지 자체에도 명시)
-HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=10 \
-  CMD curl -fsS http://localhost:8080/api/health || exit 1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=180s --retries=20 \
+  CMD curl -fsS http://localhost:${PORT:-8080}/api/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

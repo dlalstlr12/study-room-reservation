@@ -5,14 +5,23 @@
 #
 # 모든 접속 정보는 환경변수 주입. 기본값은 deploy/docker-compose.prod.yml 의 서비스명 기준.
 
+server:
+  port: ${PORT:8080}          # Render 등은 PORT 를 주입한다. 로컬/EC2 는 8080.
+
 spring:
+  main:
+    lazy-initialization: true  # 512MB/0.1CPU 프리티어 부팅 시간 단축 (SmartLifecycle 빈은 그대로 eager)
+  jmx:
+    enabled: false
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/study_room?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
     username: ${SPRING_DATASOURCE_USERNAME:study_room}
     password: ${SPRING_DATASOURCE_PASSWORD:study_room}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: ${SPRING_DATASOURCE_POOL_SIZE:5}
+      maximum-pool-size: ${SPRING_DATASOURCE_POOL_SIZE:3}
+      minimum-idle: 1
 
   jpa:
     hibernate:
@@ -21,6 +30,11 @@ spring:
     properties:
       hibernate:
         format_sql: false
+
+  batch:
+    jdbc:
+      # TiDB 는 SERIALIZABLE 격리수준을 지원하지 않는다 (Spring Batch 잡 생성 기본값).
+      isolation-level-for-create: READ_COMMITTED
 
   flyway:
     enabled: true
@@ -37,10 +51,10 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-    # Upstash 등 SASL_SSL 브로커는 아래 3개를 환경변수로 주입한다.
+    # Confluent Cloud 등 SASL_SSL 브로커는 아래 3개를 환경변수로 주입한다.
     #   SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
-    #   SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=SCRAM-SHA-256
-    #   SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.scram.ScramLoginModule required username="KEY" password="SECRET";
+    #   SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+    #   SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="KEY" password="SECRET";
     # 미설정 시 PLAINTEXT (EC2 자체 호스팅 브로커)
 
 jwt:

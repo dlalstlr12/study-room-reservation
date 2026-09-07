@@ -88,19 +88,23 @@ aws ec2 authorize-security-group-ingress --group-id $SG_ID \
 
 ## 4. 인스턴스 시작 [클로드 — 비용 발생, 실행 전 확인]
 
-> **t3.medium (4GB)** 권장. 서울 온디맨드 약 **$0.056/시간** → 검증 3~5시간이면 $0.2~0.3.
-> t3.small(2GB)도 가능하나 swap 필요(user-data 에 2G swap 포함).
+> **t3.medium (4GB)** 권장. 서울 온디맨드 약 **$0.052/시간** (초 단위 과금).
+> 실제 검증은 부팅~빌드~스모크테스트~캡처~삭제가 ~10분이면 끝나 **1회 $0.01 수준**.
+> t3.small(2GB)도 가능(user-data 에 2G swap 포함).
+> Git Bash 에서는 `export MSYS_NO_PATHCONV=1` 먼저 (`/dev/sda1` 경로 자동변환 방지).
 
 ```bash
-# Ubuntu 24.04 LTS (amd64) 최신 AMI — SSM 공개 파라미터
-AMI_ID=$(aws ssm get-parameters \
-  --names /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id \
-  --query 'Parameters[0].Value' --output text)
+# Ubuntu 24.04 LTS (amd64) 최신 AMI — Canonical 계정에서 조회 (SSM 파라미터 경로가 자주 바뀜)
+AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
+  --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
+            "Name=state,Values=available" \
+  --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
+ROOT_DEV=$(aws ec2 describe-images --image-ids $AMI_ID --query 'Images[0].RootDeviceName' --output text)
 
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID --instance-type t3.medium \
   --key-name $KEY_NAME --security-group-ids $SG_ID \
-  --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=20,VolumeType=gp3,DeleteOnTermination=true}' \
+  --block-device-mappings "DeviceName=${ROOT_DEV},Ebs={VolumeSize=20,VolumeType=gp3,DeleteOnTermination=true}" \
   --user-data file://deploy/ec2-user-data.sh \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=study-room-demo}]' \
   --query 'Instances[0].InstanceId' --output text)

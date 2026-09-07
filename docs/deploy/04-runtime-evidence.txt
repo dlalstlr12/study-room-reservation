@@ -1,0 +1,46 @@
+### docker compose ps
+NAME          IMAGE                    COMMAND                  SERVICE    CREATED         STATUS                   PORTS
+sr-backend    study-room-backend       "sh -c 'java $JAVA_O…"   backend    2 minutes ago   Up 2 minutes (healthy)   8080/tcp
+sr-frontend   study-room-frontend      "/docker-entrypoint.…"   frontend   2 minutes ago   Up About a minute        0.0.0.0:80->80/tcp, [::]:80->80/tcp
+sr-kafka      apache/kafka:3.8.0       "/__cacert_entrypoin…"   kafka      2 minutes ago   Up 2 minutes (healthy)   9092/tcp
+sr-kafka-ui   kafbat/kafka-ui:latest   "/bin/sh -c 'java --…"   kafka-ui   2 minutes ago   Up 2 minutes             0.0.0.0:8085->8080/tcp, [::]:8085->8080/tcp
+sr-mysql      mysql:8.0                "docker-entrypoint.s…"   mysql      2 minutes ago   Up 2 minutes (healthy)   3306/tcp, 33060/tcp
+sr-redis      redis:7                  "docker-entrypoint.s…"   redis      2 minutes ago   Up 2 minutes (healthy)   6379/tcp
+
+### kafka consumer groups
+
+GROUP               TOPIC               PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                         HOST            CLIENT-ID
+notification-worker notification-events 0          3               3               0               consumer-notification-worker-1-8a587b79-8f9b-490e-9b4b-399552760b4e /172.18.0.5     consumer-notification-worker-1
+GROUP                   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                             HOST            CLIENT-ID
+notification-worker-dlt notification-events-dlt 0          -               0               -               consumer-notification-worker-dlt-4-a50d3c9a-8802-4dfa-a67f-f6b42714859a /172.18.0.5     consumer-notification-worker-dlt-4
+GROUP                          TOPIC                          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                                    HOST            CLIENT-ID
+notification-worker-retry-1000 notification-events-retry-1000 0          -               0               -               consumer-notification-worker-retry-1000-2-7c07772c-f961-44b7-9c0e-e88c067d12e3 /172.18.0.5     consumer-notification-worker-retry-1000-2
+GROUP                          TOPIC                          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                                    HOST            CLIENT-ID
+notification-worker-retry-2000 notification-events-retry-2000 0          -               0               -               consumer-notification-worker-retry-2000-3-ebe6cb54-4d89-4ecb-9e3e-55a69e6c5609 /172.18.0.5     consumer-notification-worker-retry-2000-3
+GROUP                         TOPIC                         PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                                   HOST            CLIENT-ID
+notification-worker-retry-500 notification-events-retry-500 0          -               0               -               consumer-notification-worker-retry-500-7-dd92375b-8b14-42bb-80f6-041e8df57150 /172.18.0.5     consumer-notification-worker-retry-500-7
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                    HOST            CLIENT-ID
+ranking-worker  usage-events    0          -               0               -               consumer-ranking-worker-5-0f0d174a-5e07-4958-97a5-e7174b36e099 /172.18.0.5     consumer-ranking-worker-5
+GROUP               TOPIC               PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                         HOST            CLIENT-ID
+subscription-worker subscription-events 0          1               1               0               consumer-subscription-worker-6-7d873e48-c23a-4e66-bef0-ac00e42df5a1 /172.18.0.5     consumer-subscription-worker-6
+### backend boot (flyway + profile)
+2026-09-07T04:30:57.828Z  INFO 7 --- [study-room-reservation] [           main] com.studyroom.StudyRoomApplication       : The following 1 profile is active: "demo"
+2026-09-07T04:31:09.890Z  INFO 7 --- [study-room-reservation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-09-07T04:31:09.968Z  INFO 7 --- [study-room-reservation] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 44 ms. Found 0 Redis repository interfaces.
+2026-09-07T04:31:14.491Z  INFO 7 --- [study-room-reservation] [           main] org.redisson.Version                     : Redisson 3.34.1
+2026-09-07T04:31:16.335Z  INFO 7 --- [study-room-reservation] [isson-netty-1-5] o.redisson.connection.ConnectionsHolder  : 1 connections initialized for redis/172.18.0.3:6379
+2026-09-07T04:31:16.956Z  INFO 7 --- [study-room-reservation] [sson-netty-1-20] o.redisson.connection.ConnectionsHolder  : 24 connections initialized for redis/172.18.0.3:6379
+2026-09-07T04:31:21.100Z  INFO 7 --- [study-room-reservation] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://mysql:3306/study_room (MySQL 8.0)
+2026-09-07T04:31:21.565Z  INFO 7 --- [study-room-reservation] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table `study_room`.`flyway_schema_history` does not exist yet
+2026-09-07T04:31:21.577Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 8 migrations (execution time 00:00.095s)
+2026-09-07T04:31:21.663Z  INFO 7 --- [study-room-reservation] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table `study_room`.`flyway_schema_history` ...
+2026-09-07T04:31:21.965Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema `study_room`: << Empty Schema >>
+2026-09-07T04:31:22.047Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema `study_room` to version "1 - init schema"
+2026-09-07T04:31:22.504Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema `study_room` to version "2 - drop room status"
+2026-09-07T04:31:22.708Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema `study_room` to version "3 - lottery"
+2026-09-07T04:31:22.987Z  INFO 7 --- [study-room-reservation] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema `study_room` to version "4 - lottery audience"
+2026-09-07T04:31:43.007Z  INFO 7 --- [study-room-reservation] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-09-07T04:31:44.813Z  INFO 7 --- [study-room-reservation] [           main] com.studyroom.StudyRoomApplication       : Started StudyRoomApplication in 49.941 seconds (process running for 53.138)
+2026-09-07T04:31:45.154Z  INFO 7 --- [study-room-reservation] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 20 ms
+2026-09-07T04:31:46.598Z  INFO 7 --- [study-room-reservation] [           main] c.s.common.config.LocalDataInitializer   : [seed] 데모 관리자 계정 생성: admin@studyroom.local / admin1234
+2026-09-07T04:31:46.766Z  INFO 7 --- [study-room-reservation] [           main] c.s.common.config.LocalDataInitializer   : [seed] 데모 룸 4개 생성

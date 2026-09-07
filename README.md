@@ -224,6 +224,45 @@ SubscriptionEventConsumer ─▶ 6단계 알림 파이프라인 (notifications +
 - 재현/검증: `backend/src/test/java/com/studyroom/subscription/`
 - 프론트: `/subscription` — 플랜 카드, PRO 구독/해지, 결제 이력, ADMIN 배치 실행
 
+## 인프라 · CI/CD (로드맵 9단계)
+
+### GitHub Actions CI
+
+`main` push·PR 마다 [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+- **backend** — `gradlew build` (Testcontainers MySQL·Redis·Kafka 로 통합 테스트 포함)
+- **frontend** — `npm run build` (타입체크 + 프로덕션 번들)
+- **docker** — 위 둘 통과 시 배포 이미지 빌드
+
+### AWS EC2 배포 검증 (1회성)
+
+전체 스택(MySQL·Redis·Kafka·Spring Boot·nginx)을 EC2 t3.medium 한 대에 `docker compose`로
+올려 실제 동작을 확인했다. 비용 최소화를 위해 검증 후 인스턴스·볼륨을 **완전히 삭제**했고,
+상시 데모는 아래 관리형 무료 티어로 운영한다.
+
+```
+cloud-init(Docker+swap+clone) ─▶ deploy/deploy.sh (IMDSv2 로 퍼블릭 IP 감지 → up --build)
+  ─▶ deploy/verify.sh 엔드투엔드 16종 PASS
+  ─▶ 앱·Kafka UI·Swagger 캡처 ─▶ terminate-instances (볼륨 DeleteOnTermination)
+```
+
+- Ubuntu 24.04, `aws ec2 run-instances` ~ `terminate` 전 과정 CLI, 가동 ~10분, **1회성 약 $0.01**, 이후 $0
+- Flyway 8개 마이그레이션 자동 적용, `demo` 프로파일 시드(관리자·룸), Kafka 7토픽·컨슈머 lag 0
+- 근거: [`docs/deploy/`](docs/deploy/) (CLI 출력·부팅 로그·`verify.sh` 로그·Kafka 컨슈머 그룹)
+- 절차: [`deploy/CHECKLIST.md`](deploy/CHECKLIST.md)
+
+### 상시 무료 배포
+
+| 레이어 | 서비스 |
+|---|---|
+| 프론트 | Vercel ([`frontend/vercel.json`](frontend/vercel.json)) |
+| 백엔드 | Render (Docker web, [`render.yaml`](render.yaml)) — `main` push 자동 재배포 |
+| MySQL | TiDB Cloud Serverless |
+| Redis | Upstash |
+| Kafka | Confluent Cloud Basic |
+
+설정: [`deploy/RENDER.md`](deploy/RENDER.md)
+
 ## 다음 단계
 
-로드맵 9단계(인프라/CI-CD): AWS EC2+RDS 배포, GitHub Actions 파이프라인.
+로드맵 10단계: 부하테스트 수치화, README·트러블슈팅 문서 최종 정리.

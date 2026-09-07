@@ -5,7 +5,7 @@
 | 목적 | 방식 | 비용 | 파일 |
 |---|---|---|---|
 | **AWS 경험 확보** (1회성) | EC2 1대에 전체 스택 자체 호스팅 → 동작 확인 → 캡처 → **Terminate** | 검증 몇 시간치 (~$1 미만), 이후 0 | `docker-compose.prod.yml`, `ec2-user-data.sh`, `deploy.sh`, `CHECKLIST.md` |
-| **상시 데모** | 프론트 Vercel/Cloudflare · 백엔드 Render · MySQL TiDB Cloud · Redis+Kafka Upstash | 무료 | `../backend/Dockerfile` (Render), `RENDER.md` (예정) |
+| **상시 데모** | 프론트 Vercel · 백엔드 Render · MySQL TiDB Cloud · Redis Upstash · Kafka Confluent Cloud Basic | ~$0 | `../render.yaml`, `../frontend/vercel.json`, `RENDER.md` |
 
 ## 구성요소
 

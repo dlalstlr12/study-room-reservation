@@ -4,6 +4,16 @@
 
 전체 설계와 개발 로드맵은 [`docs/roadmap.md`](./docs/roadmap.md)를 참고하세요.
 
+## 라이브 데모
+
+| | |
+|---|---|
+| 웹 | https://study-room-reservation-five.vercel.app |
+| API (Swagger) | https://study-room-backend-vyqc.onrender.com/swagger-ui.html |
+| 데모 관리자 | `admin@studyroom.local` / `admin1234` |
+
+> 백엔드는 Render 무료 플랜이라 15분간 요청이 없으면 잠듭니다. **첫 접속 시 서버가 깨어나는 데 30초~1분** 걸릴 수 있습니다(대시보드의 "백엔드 상태"가 "운영 중"이 되면 준비 완료). 구성: 프론트 Vercel · 백엔드 Render · MySQL TiDB Cloud · Redis Upstash · Kafka Confluent Cloud.
+
 ## 구조
 
 ```
@@ -253,15 +263,18 @@ cloud-init(Docker+swap+clone) ─▶ deploy/deploy.sh (IMDSv2 로 퍼블릭 IP �
 
 ### 상시 무료 배포
 
-| 레이어 | 서비스 |
-|---|---|
-| 프론트 | Vercel ([`frontend/vercel.json`](frontend/vercel.json)) |
-| 백엔드 | Render (Docker web, [`render.yaml`](render.yaml)) — `main` push 자동 재배포 |
-| MySQL | TiDB Cloud Serverless |
-| Redis | Upstash |
-| Kafka | Confluent Cloud Basic |
+[라이브 데모](#라이브-데모)는 아래 무료 티어 조합으로 상시 운영된다. `main` push → GitHub Actions CI →
+Render(백엔드)·Vercel(프론트) 자동 재배포.
 
-설정: [`deploy/RENDER.md`](deploy/RENDER.md)
+| 레이어 | 서비스 | 비고 |
+|---|---|---|
+| 프론트 | Vercel ([`frontend/vercel.json`](frontend/vercel.json)) | 같은 오리진 아님 → 실제 CORS 동작 |
+| 백엔드 | Render (Docker web, [`render.yaml`](render.yaml)) | 512MB/0.1CPU — 15분 유휴 시 슬립, 부팅 최적화(`lazy-init`, `TieredStopAtLevel=1`) 적용 |
+| MySQL | TiDB Cloud Serverless | Spring Batch 잡 격리수준 `READ_COMMITTED`(TiDB는 SERIALIZABLE 미지원) |
+| Redis | Upstash | TLS + Redisson 커넥션 풀 축소 |
+| Kafka | Confluent Cloud Basic | SASL_SSL/PLAIN, 토픽 7개 사전 생성 |
+
+설정 절차: [`deploy/RENDER.md`](deploy/RENDER.md)
 
 ## 다음 단계
 

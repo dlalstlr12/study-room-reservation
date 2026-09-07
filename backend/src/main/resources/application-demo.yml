@@ -9,10 +9,10 @@ server:
   port: ${PORT:8080}          # Render 등은 PORT 를 주입한다. 로컬/EC2 는 8080.
 
 spring:
-  main:
-    lazy-initialization: true  # 512MB/0.1CPU 프리티어 부팅 시간 단축 (SmartLifecycle 빈은 그대로 eager)
   jmx:
     enabled: false
+  # lazy-initialization 은 쓰지 않는다 — @KafkaListener 컨슈머 빈이 지연 생성되면
+  # 리스너 등록이 누락돼 "발행은 되는데 소비가 안 되는" 상태가 된다(프리티어에서 확인).
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/study_room?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}

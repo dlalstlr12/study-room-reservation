@@ -1,0 +1,62 @@
+# Render Blueprint — 상시 백엔드 배포 (무료 웹서비스).
+# 대시보드에서 "New > Blueprint" 로 이 저장소를 연결하면 아래 서비스가 생성된다.
+# sync:false 인 값은 Render 대시보드에서 직접 입력한다 (TiDB / Upstash / Confluent 접속 정보).
+#
+# 관리형 서비스:
+#   MySQL  = TiDB Cloud Serverless (무료)
+#   Redis  = Upstash Redis (무료)
+#   Kafka  = Confluent Cloud Basic (클러스터 요금 없음, 데모 트래픽이면 사실상 $0)
+#
+# 프론트(Vercel)와 다른 오리진이므로 CORS 가 실제로 동작한다 —
+# APP_CORS_ALLOWED_ORIGINS 에 Vercel 도메인을 넣어야 한다.
+
+services:
+  - type: web
+    name: study-room-backend
+    runtime: docker
+    plan: free
+    region: singapore            # 서울에서 가장 가까운 무료 리전
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    autoDeploy: true             # main push 시 자동 재배포 (= CD)
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      - key: SERVER_PORT
+        value: "8080"
+      - key: JWT_SECRET
+        generateValue: true      # Render 가 랜덤 생성
+
+      # --- MySQL: TiDB Cloud Serverless ---
+      # jdbc:mysql://<host>:4000/<db>?sslMode=VERIFY_IDENTITY&enabledTLSProtocols=TLSv1.2,TLSv1.3&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+
+      # --- Redis: Upstash ---
+      - key: SPRING_DATA_REDIS_HOST
+        sync: false
+      - key: SPRING_DATA_REDIS_PORT
+        sync: false              # Upstash 는 보통 6379
+      - key: SPRING_DATA_REDIS_PASSWORD
+        sync: false
+      - key: SPRING_DATA_REDIS_SSL
+        value: "true"
+
+      # --- Kafka: Confluent Cloud Basic (SASL_SSL / PLAIN) ---
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false              # pkc-xxxxx.<region>.<cloud>.confluent.cloud:9092
+      - key: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - key: SPRING_KAFKA_PROPERTIES_SASL_MECHANISM
+        value: PLAIN
+      - key: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG
+        sync: false              # org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY>" password="<API_SECRET>";
+
+      # --- 프론트 오리진 (Vercel) ---
+      - key: APP_CORS_ALLOWED_ORIGINS
+        sync: false             # https://study-room-reservation.vercel.app

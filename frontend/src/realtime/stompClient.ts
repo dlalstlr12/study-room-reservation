@@ -1,7 +1,9 @@
 import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-const BROKER_URL = API_BASE_URL.replace(/^http/, 'ws') + '/ws'
+// API_BASE_URL 이 빈 값이면(같은 오리진 배포: nginx 가 /ws 를 프록시) 현재 오리진에서 파생한다.
+const WS_ORIGIN = API_BASE_URL || window.location.origin
+const BROKER_URL = WS_ORIGIN.replace(/^http/, 'ws') + '/ws'
 
 type JsonHandler = (data: unknown) => void
 type ConnectionHandler = (connected: boolean) => void

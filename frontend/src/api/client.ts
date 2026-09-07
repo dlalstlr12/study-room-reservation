@@ -36,7 +36,9 @@ interface RequestOptions {
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = new URL(API_BASE_URL + path)
+  // API_BASE_URL 이 빈 값이면(같은 오리진 배포) 현재 오리진 기준 상대경로로 해석한다.
+  const base = typeof window !== 'undefined' ? window.location.origin : undefined
+  const url = new URL(API_BASE_URL + path, base)
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== '') url.searchParams.set(key, String(value))

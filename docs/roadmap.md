@@ -182,7 +182,7 @@ erDiagram
 - [x] **6단계 — 메시징/알림**: Kafka 도입, 추첨/공지 → 알림 워커(`@KafkaListener`), 멱등(`dedup_key`), `@RetryableTopic` 재시도 + DLT, DB 이력 + WebSocket 푸시
 - [x] **7단계 — 랭킹**: 퇴실(수동+백스톱) → Kafka `usage-events` → 랭킹 워커가 `usage_logs`(멱등) + Redis Sorted Set `ZINCRBY`(전체/일간), `ZREVRANGE` 조회, ADMIN 재구축
 - [x] **8단계 — 구독/배치**: Spring Batch 일일 정기결제, 트랜잭션 아웃박스(`outbox_events` + `SKIP LOCKED` 릴레이 → Kafka), `idempotency_key` UNIQUE 중복결제 방지, PRO 홀딩 연장(도메인 연계)
-- [ ] **9단계 — 인프라/CI-CD**: AWS 배포, GitHub Actions 파이프라인
+- [x] **9단계 — 인프라/CI-CD**: 백엔드/프론트 Docker 이미지 + nginx 리버스 프록시, GitHub Actions CI(빌드·테스트·이미지), AWS EC2 전체 스택 배포 검증 후 비용 최소화 위해 인스턴스 삭제(1회성 ~$0.01), 상시 데모는 Render+Vercel+TiDB+Upstash+Confluent 무료 티어
 - [ ] **10단계 — 부하테스트 & 문서 정리**: 성능 비교 수치화, README/블로그 최종 정리
 
 각 단계가 끝날 때마다 "무엇이 문제였고, 어떻게 해결했는가"를 짧게라도 기록해두면 이후 README 작성이 훨씬 수월합니다.

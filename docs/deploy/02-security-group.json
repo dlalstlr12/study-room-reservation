@@ -1,0 +1,44 @@
+[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "UserIdGroupPairs": [],
+        "IpRanges": [
+            {
+                "Description": "frontend",
+                "CidrIp": "0.0.0.0/0"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    },
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 22,
+        "ToPort": 22,
+        "UserIdGroupPairs": [],
+        "IpRanges": [
+            {
+                "Description": "ssh-my-ip",
+                "CidrIp": "125.184.245.32/32"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    },
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8085,
+        "ToPort": 8085,
+        "UserIdGroupPairs": [],
+        "IpRanges": [
+            {
+                "Description": "kafka-ui",
+                "CidrIp": "0.0.0.0/0"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+]

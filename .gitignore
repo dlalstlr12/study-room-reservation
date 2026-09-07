@@ -20,6 +20,9 @@ frontend/dist/
 frontend/.env
 frontend/.env.local
 
+# 배포 시크릿
+deploy/.env
+
 # OS
 .DS_Store
 Thumbs.db

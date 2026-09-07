@@ -23,8 +23,7 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: demo
-      - key: SERVER_PORT
-        value: "8080"
+      # 포트는 Render 가 주입하는 PORT 를 앱이 자동으로 사용한다 (application-demo.yml).
       - key: JWT_SECRET
         generateValue: true      # Render 가 랜덤 생성
 

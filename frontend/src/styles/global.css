@@ -237,6 +237,12 @@ a:hover {
   background: var(--stop);
 }
 
+/* 기동 대기는 장애가 아니라 "곧 됨" 상태다 — 정지 빨강이 아닌 대기 호박색 */
+.health--waking .health__dot {
+  background: var(--reserved);
+  animation: wakeup-pulse 1.4s ease-in-out infinite;
+}
+
 .main {
   display: flex;
   flex-direction: column;
@@ -358,9 +364,14 @@ a:hover {
 
 .stat--up,
 .stat--down,
+.stat--waking,
 .stat--checking {
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+.stat--waking {
+  color: var(--reserved);
 }
 
 .stat--up {
@@ -1588,4 +1599,98 @@ a:hover {
   height: 1px;
   margin: 1.1rem 0;
   background: var(--rule);
+}
+
+/* ── 무료 티어 콜드 스타트 안내 ─────────────────────────────
+   서버가 깨어 있으면 렌더되지 않는다. 안내판처럼 "왜 기다리는지"를 알려준다. */
+.wakeup {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--reserved);
+  border-left-width: 3px;
+  border-radius: var(--r);
+  background: var(--reserved-soft);
+}
+
+.wakeup__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.wakeup__title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+.wakeup__elapsed {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--reserved);
+  white-space: nowrap;
+}
+
+.wakeup__spinner {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border: 2px solid var(--reserved);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: wakeup-spin 0.9s linear infinite;
+}
+
+.wakeup__desc {
+  margin: 0.55rem 0 0;
+  font-size: 0.87rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+
+.wakeup__desc strong {
+  color: var(--ink);
+}
+
+.wakeup__desc--sub {
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--reserved);
+}
+
+.wakeup__bar {
+  margin-top: 0.75rem;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(178, 106, 0, 0.18);
+  overflow: hidden;
+}
+
+.wakeup__bar span {
+  display: block;
+  height: 100%;
+  background: var(--reserved);
+  transition: width 1s linear;
+}
+
+@keyframes wakeup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wakeup-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wakeup__spinner,
+  .health--waking .health__dot {
+    animation: none;
+  }
 }

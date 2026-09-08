@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { getHealth } from '../api/health'
+import { BackendStatusProvider, useBackendStatus } from '../backend/BackendStatusContext'
 import { useAuth } from '../auth/AuthContext'
+import { ColdStartNotice } from './ColdStartNotice'
 import { NotificationBell } from './NotificationBell'
 import { useToast } from './ToastContext'
 import { Button } from './ui'
 
-type HealthState = 'checking' | 'up' | 'down'
+/** 이 시간을 넘겨 기다리는 중이면 "응답 없음"이 아니라 "기동 중"으로 보여준다 */
+const WAKING_AFTER_MS = 6_000
 
 const NAV = [
   { to: '/', label: '대시보드', end: true },
@@ -21,24 +22,22 @@ const NAV = [
 const ADMIN_NAV = { to: '/admin', label: '관리자', end: false }
 
 export function AppLayout() {
+  return (
+    <BackendStatusProvider>
+      <AppShell />
+    </BackendStatusProvider>
+  )
+}
+
+function AppShell() {
   const { user, status, isAdmin, logout } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
-  const [health, setHealth] = useState<HealthState>('checking')
+  const { state, waitingMs } = useBackendStatus()
 
-  useEffect(() => {
-    let active = true
-    const check = () =>
-      getHealth()
-        .then(() => active && setHealth('up'))
-        .catch(() => active && setHealth('down'))
-    check()
-    const timer = window.setInterval(check, 15000)
-    return () => {
-      active = false
-      window.clearInterval(timer)
-    }
-  }, [])
+  // 기동 대기는 장애가 아니다. 같은 'down' 이라도 문구를 나눠 오해를 줄인다.
+  const waking = state !== 'up' && waitingMs >= WAKING_AFTER_MS
+  const health = state === 'up' ? 'up' : waking ? 'waking' : 'checking'
 
   const handleLogout = async () => {
     await logout()
@@ -85,7 +84,7 @@ export function AppLayout() {
         <div className="sidebar__foot">
           <span className={`health health--${health}`}>
             <span className="health__dot" />
-            {health === 'up' ? '운영 중' : health === 'down' ? '응답 없음' : '확인 중'}
+            {health === 'up' ? '운영 중' : health === 'waking' ? '기동 중' : '확인 중'}
           </span>
         </div>
       </aside>
@@ -117,6 +116,7 @@ export function AppLayout() {
           </div>
         </header>
         <main className="content">
+          <ColdStartNotice />
           <Outlet />
         </main>
       </div>

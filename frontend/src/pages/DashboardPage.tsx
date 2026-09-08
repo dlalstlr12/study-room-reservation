@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getHealth } from '../api/health'
+import { useBackendStatus } from '../backend/BackendStatusContext'
 import { listRooms } from '../api/rooms'
 import { listMyReservations } from '../api/reservations'
 import { useAuth } from '../auth/AuthContext'
 import { Card } from '../components/ui'
-import { formatDateTime } from '../utils/format'
 
 const FEATURES = [
   { to: '/rooms', label: '룸', desc: '룸별 실시간 좌석 현황을 보고 원하는 시간대를 홀딩·예약합니다' },
@@ -18,18 +17,12 @@ const FEATURES = [
 
 export function DashboardPage() {
   const { user, status } = useAuth()
-  const [health, setHealth] = useState<{ state: 'up' | 'down' | 'checking'; timestamp?: string }>({
-    state: 'checking',
-  })
+  const { state: backend, waitingMs, readyCount } = useBackendStatus()
   const [stats, setStats] = useState<{ rooms?: number; reservations?: number }>({})
 
+  // 서버가 잠들어 있었다면 첫 조회는 실패한다. 살아난 순간(readyCount)에 다시 불러온다.
   useEffect(() => {
-    getHealth()
-      .then((h) => setHealth({ state: 'up', timestamp: h.timestamp }))
-      .catch(() => setHealth({ state: 'down' }))
-  }, [])
-
-  useEffect(() => {
+    if (backend !== 'up') return
     listRooms()
       .then((rooms) => setStats((s) => ({ ...s, rooms: rooms.length })))
       .catch(() => undefined)
@@ -38,7 +31,9 @@ export function DashboardPage() {
         .then((r) => setStats((s) => ({ ...s, reservations: r.length })))
         .catch(() => undefined)
     }
-  }, [status])
+  }, [status, backend, readyCount])
+
+  const waking = backend !== 'up' && waitingMs >= 6_000
 
   return (
     <div className="page">
@@ -51,17 +46,10 @@ export function DashboardPage() {
 
       <div className="grid grid--stats">
         <Card title="백엔드 상태">
-          <p className={`stat stat--${health.state}`}>
-            {health.state === 'up' && '운영 중'}
-            {health.state === 'down' && '응답 없음'}
-            {health.state === 'checking' && '확인 중'}
+          <p className={`stat stat--${backend === 'up' ? 'up' : waking ? 'waking' : 'checking'}`}>
+            {backend === 'up' ? '운영 중' : waking ? '기동 중' : '확인 중'}
           </p>
-          {health.state === 'down' && (
-            <p className="stat__sub">백엔드를 실행한 뒤 새로고침하세요.</p>
-          )}
-          {health.timestamp && (
-            <p className="stat__sub">서버 시각 {formatDateTime(health.timestamp)}</p>
-          )}
+          {waking && <p className="stat__sub">무료 티어라 첫 접속에 3~5분이 걸립니다</p>}
         </Card>
         <Link to="/rooms" className="stat-card-link">
           <Card title="등록된 룸">

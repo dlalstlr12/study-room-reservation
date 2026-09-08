@@ -33,6 +33,8 @@ interface RequestOptions {
   /** true면 access 토큰을 붙이지 않는다 (로그인/회원가입 등) */
   anonymous?: boolean
   query?: Record<string, string | number | undefined>
+  /** 응답이 오래 걸릴 때 호출 측에서 요청을 끊기 위한 신호 */
+  signal?: AbortSignal
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -84,6 +86,7 @@ async function rawRequest<T>(path: string, options: RequestOptions, retrying: bo
     method: options.method ?? 'GET',
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
   })
 
   if (res.status === 401 && !options.anonymous && !retrying) {

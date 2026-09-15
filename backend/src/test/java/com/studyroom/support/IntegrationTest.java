@@ -49,5 +49,8 @@ public abstract class IntegrationTest {
 				() -> KAFKA.getBootstrapServers().replace("PLAINTEXT://", ""));
 		// 아웃박스 릴레이 스케줄러는 테스트에서 끈다 — 테스트가 relay()를 직접 호출해 타이밍을 통제한다.
 		registry.add("subscription.outbox.scheduler-enabled", () -> "false");
+		// 데모 시드(LocalDataInitializer)도 테스트에서 끈다 — 컨테이너를 공유하는 통합 테스트가
+		// payments/subscriptions 등의 절대 개수를 단정하는데, 시드가 끼어들면 그 단정이 깨진다.
+		registry.add("app.demo-seed.enabled", () -> "false");
 	}
 }

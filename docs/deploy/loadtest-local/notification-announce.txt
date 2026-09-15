@@ -1,0 +1,153 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: -
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 5 max VUs, 1m0s max duration (incl. graceful stop):
+              * announce: 1.00 iterations/s for 30s (maxVUs: 5, gracefulStop: 30s)
+
+
+running (0m01.0s), 0/5 VUs, 1 complete and 0 interrupted iterations
+announce   [   2% ] 0/5 VUs  00.7s/30s  1.00 iters/s
+
+running (0m02.0s), 0/5 VUs, 2 complete and 0 interrupted iterations
+announce   [   6% ] 0/5 VUs  01.7s/30s  1.00 iters/s
+
+running (0m03.0s), 0/5 VUs, 3 complete and 0 interrupted iterations
+announce   [   9% ] 0/5 VUs  02.7s/30s  1.00 iters/s
+
+running (0m04.0s), 0/5 VUs, 4 complete and 0 interrupted iterations
+announce   [  12% ] 0/5 VUs  03.7s/30s  1.00 iters/s
+
+running (0m05.0s), 0/5 VUs, 5 complete and 0 interrupted iterations
+announce   [  16% ] 0/5 VUs  04.7s/30s  1.00 iters/s
+
+running (0m06.0s), 0/5 VUs, 6 complete and 0 interrupted iterations
+announce   [  19% ] 0/5 VUs  05.7s/30s  1.00 iters/s
+
+running (0m07.0s), 0/5 VUs, 7 complete and 0 interrupted iterations
+announce   [  22% ] 0/5 VUs  06.7s/30s  1.00 iters/s
+
+running (0m08.0s), 0/5 VUs, 8 complete and 0 interrupted iterations
+announce   [  26% ] 0/5 VUs  07.7s/30s  1.00 iters/s
+
+running (0m09.0s), 0/5 VUs, 9 complete and 0 interrupted iterations
+announce   [  29% ] 0/5 VUs  08.7s/30s  1.00 iters/s
+
+running (0m10.0s), 0/5 VUs, 10 complete and 0 interrupted iterations
+announce   [  32% ] 0/5 VUs  09.7s/30s  1.00 iters/s
+
+running (0m11.0s), 0/5 VUs, 11 complete and 0 interrupted iterations
+announce   [  36% ] 0/5 VUs  10.7s/30s  1.00 iters/s
+
+running (0m12.0s), 0/5 VUs, 12 complete and 0 interrupted iterations
+announce   [  39% ] 0/5 VUs  11.7s/30s  1.00 iters/s
+
+running (0m13.0s), 0/5 VUs, 13 complete and 0 interrupted iterations
+announce   [  42% ] 0/5 VUs  12.7s/30s  1.00 iters/s
+
+running (0m14.0s), 0/5 VUs, 14 complete and 0 interrupted iterations
+announce   [  46% ] 0/5 VUs  13.7s/30s  1.00 iters/s
+
+running (0m15.0s), 0/5 VUs, 15 complete and 0 interrupted iterations
+announce   [  49% ] 0/5 VUs  14.7s/30s  1.00 iters/s
+
+running (0m16.0s), 0/5 VUs, 16 complete and 0 interrupted iterations
+announce   [  52% ] 0/5 VUs  15.7s/30s  1.00 iters/s
+
+running (0m17.0s), 0/5 VUs, 17 complete and 0 interrupted iterations
+announce   [  56% ] 0/5 VUs  16.7s/30s  1.00 iters/s
+
+running (0m18.0s), 0/5 VUs, 18 complete and 0 interrupted iterations
+announce   [  59% ] 0/5 VUs  17.7s/30s  1.00 iters/s
+
+running (0m19.0s), 0/5 VUs, 19 complete and 0 interrupted iterations
+announce   [  62% ] 0/5 VUs  18.7s/30s  1.00 iters/s
+
+running (0m20.0s), 0/5 VUs, 20 complete and 0 interrupted iterations
+announce   [  66% ] 0/5 VUs  19.7s/30s  1.00 iters/s
+
+running (0m21.0s), 0/5 VUs, 21 complete and 0 interrupted iterations
+announce   [  69% ] 0/5 VUs  20.7s/30s  1.00 iters/s
+
+running (0m22.0s), 0/5 VUs, 22 complete and 0 interrupted iterations
+announce   [  72% ] 0/5 VUs  21.7s/30s  1.00 iters/s
+
+running (0m23.0s), 0/5 VUs, 23 complete and 0 interrupted iterations
+announce   [  76% ] 0/5 VUs  22.7s/30s  1.00 iters/s
+
+running (0m24.0s), 0/5 VUs, 24 complete and 0 interrupted iterations
+announce   [  79% ] 0/5 VUs  23.7s/30s  1.00 iters/s
+
+running (0m25.0s), 0/5 VUs, 25 complete and 0 interrupted iterations
+announce   [  82% ] 0/5 VUs  24.7s/30s  1.00 iters/s
+
+running (0m26.0s), 0/5 VUs, 26 complete and 0 interrupted iterations
+announce   [  86% ] 0/5 VUs  25.7s/30s  1.00 iters/s
+
+running (0m27.0s), 0/5 VUs, 27 complete and 0 interrupted iterations
+announce   [  89% ] 0/5 VUs  26.7s/30s  1.00 iters/s
+
+running (0m28.0s), 0/5 VUs, 28 complete and 0 interrupted iterations
+announce   [  92% ] 0/5 VUs  27.7s/30s  1.00 iters/s
+
+running (0m29.0s), 0/5 VUs, 29 complete and 0 interrupted iterations
+announce   [  96% ] 0/5 VUs  28.7s/30s  1.00 iters/s
+
+running (0m30.0s), 0/5 VUs, 30 complete and 0 interrupted iterations
+announce   [  99% ] 0/5 VUs  29.7s/30s  1.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:announce}
+    ✓ 'p(95)<500' p(95)=45.69ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 32      1.054917/s
+    checks_succeeded...: 100.00% 32 out of 32
+    checks_failed......: 0.00%   0 out of 32
+
+    ✓ login 200
+    ✓ 202 accepted
+
+    HTTP
+    http_req_duration..............: avg=35.49ms min=8.95ms med=13.69ms max=340.78ms p(90)=40.45ms p(95)=170.48ms
+      { expected_response:true }...: avg=35.49ms min=8.95ms med=13.69ms max=340.78ms p(90)=40.45ms p(95)=170.48ms
+      { name:announce }............: avg=26.35ms min=8.95ms med=13.69ms max=340.78ms p(90)=24.11ms p(95)=45.69ms 
+    http_req_failed................: 0.00% 0 out of 32
+    http_reqs......................: 32    1.054917/s
+
+    EXECUTION
+    iteration_duration.............: avg=26.92ms min=9.24ms med=13.99ms max=342.48ms p(90)=25.9ms  p(95)=47.88ms 
+    iterations.....................: 31    1.021951/s
+    vus............................: 0     min=0       max=0
+    vus_max........................: 5     min=5       max=5
+
+    NETWORK
+    data_received..................: 11 kB 366 B/s
+    data_sent......................: 14 kB 465 B/s
+
+
+
+
+running (0m30.3s), 0/5 VUs, 31 complete and 0 interrupted iterations
+announce ✓ [ 100% ] 0/5 VUs  30s  1.00 iters/s
+
+--- 드레인 완료 후 (2026-09-15, 클린 Kafka 기준) ---
+select status, count(*) from notifications group by status;
+SENT    15791
+FAILED  112
+-- 총 15,903건 (공지 31건 x 회원 513명). 실패율 112/15903 = 0.704% (이론값 0.3^4 ~= 0.81%)
